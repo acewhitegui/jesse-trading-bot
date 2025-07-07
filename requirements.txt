@@ -1,0 +1,2 @@
+jesse==1.9.8
+setuptools<81
