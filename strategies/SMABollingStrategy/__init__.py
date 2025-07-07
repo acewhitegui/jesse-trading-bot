@@ -230,3 +230,20 @@ class SMABollingStrategy(Strategy):
     def terminate(self):
         """Strategy end statistics"""
         pass
+
+    def hyperparameters(self):
+        """
+        Returns a dict of hyperparameters for optimization.
+        Tune these ranges for optimal results.
+        """
+        return {
+            'rsi_period': (8, 20, 1),  # int: min, max, step
+            'rsi_sma_period': (8, 24, 1),  # int: min, max, step
+            'bb_period': (10, 40, 1),  # int: min, max, step
+            'adx_period': (8, 24, 1),  # int: min, max, step
+            'adx_threshold': (10, 40, 1),  # int: min, max, step
+            'bb_width_threshold': (0.005, 0.05, 0.001),  # float: min, max, step
+            'rsi_oversold': (20, 40, 1),  # int: min, max, step
+            'rsi_overbought': (60, 80, 1),  # int: min, max, step
+            'sma_trend_period': (8, 30, 1),  # int: min, max, step
+        }
