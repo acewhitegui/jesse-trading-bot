@@ -22,7 +22,6 @@ class SMABollingStrategy(Strategy):
         self.rsi_period = 12
         self.rsi_sma_period = 14
         self.bb_period = 24
-        self.bb_std = 2.0
         self.rsi_oversold = 28
         self.rsi_overbought = 68
         self.adx_period = 12
@@ -43,7 +42,7 @@ class SMABollingStrategy(Strategy):
     @property
     def bollinger_bands(self):
         """Bollinger Bands"""
-        return ta.bollinger_bands(self.candles, period=self.bb_period, devfactor=self.bb_std, sequential=True)
+        return ta.bollinger_bands(self.candles, period=self.bb_period, sequential=True)
 
     @property
     def bb_upper(self):
@@ -198,11 +197,6 @@ class SMABollingStrategy(Strategy):
         current_price = self.candles[-1][4]
         qty = utils.size_to_qty(trade_amount, current_price, precision=6)
 
-        # Log entry info
-        self.log(f'Go long: Price={current_price:.2f}, Quantity={qty:.6f}, '
-                 f'RSI={self.rsi[-1]:.2f}, RSI_SMA={self.rsi_sma[-1]:.2f}, '
-                 f'BB_Lower={self.bb_lower[-1]:.2f}, ADX={self.adx[-1]:.2f}')
-
         self.buy = qty, current_price
 
     def go_short(self):
@@ -223,9 +217,6 @@ class SMABollingStrategy(Strategy):
                                  current_rsi_sma < current_rsi)
 
             if close_long_signal:
-                self.log(f'Exit long: Price={current_price:.2f}, '
-                         f'RSI={current_rsi:.2f}, RSI_SMA={current_rsi_sma:.2f}, '
-                         f'BB_Middle={bb_middle:.2f}, Return={self.position.pnl_percentage:.2f}%')
                 self.liquidate()
 
     def on_open_position(self, order):
@@ -239,14 +230,3 @@ class SMABollingStrategy(Strategy):
     def terminate(self):
         """Strategy end statistics"""
         pass
-
-    def log(self, msg, log_type='info'):
-        """Logging"""
-        if log_type == 'info':
-            self.logger.info(msg)
-        elif log_type == 'error':
-            self.logger.error(msg)
-        elif log_type == 'warning':
-            self.logger.warning(msg)
-
-
