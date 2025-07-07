@@ -80,8 +80,9 @@ class TemaTrendFollowing(Strategy):
         stop_loss_price = entry_price - (self.atr * 4)  # Stop loss 4 ATR below entry
         
         # Risk 3% of available margin
-        qty = utils.risk_to_qty(self.available_margin, 3, entry_price, stop_loss_price, fee_rate=self.fee_rate)
-        
+        risk_qty = utils.risk_to_qty(self.available_margin, 3, entry_price, stop_loss_price, fee_rate=self.fee_rate)
+        max_qty = utils.size_to_qty(0.30 * self.available_margin, entry_price, fee_rate=self.fee_rate)
+        qty = min(risk_qty, max_qty)
         # Place the order
         self.buy = qty*3, entry_price
     
