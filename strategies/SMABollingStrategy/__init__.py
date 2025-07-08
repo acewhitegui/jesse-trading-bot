@@ -218,7 +218,7 @@ class SMABollingStrategy(Strategy):
                 self.liquidate()
 
     def should_cancel_entry(self) -> bool:
-        return True
+        return False
 
     def on_open_position(self, order) -> None:
         if self.is_long:
