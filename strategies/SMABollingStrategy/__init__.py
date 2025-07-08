@@ -256,6 +256,6 @@ class SMABollingStrategy(Strategy):
     def dna(self) -> str:
         symbol = self.symbol
         dna_dict = {
-            "BTC-USDT": "eyJhZHhfcGVyaW9kIjogOCwgImFkeF90aHJlc2hvbGQiOiAyOCwgImJiX3BlcmlvZCI6IDM3LCAiYmJfd2lkdGhfdGhyZXNob2xkIjogMC4wMzQsICJyc2lfcGVyaW9kIjogMjIsICJyc2lfc21hX3BlcmlvZCI6IDgsICJzbWFfdHJlbmRfcGVyaW9kIjogMjV9"
+            "BTC-USDT": "eyJhZHhfcGVyaW9kIjogOSwgImFkeF90aHJlc2hvbGQiOiAzMCwgImJiX3BlcmlvZCI6IDMyLCAiYmJfd2lkdGhfdGhyZXNob2xkIjogMC4wNDcsICJyc2lfcGVyaW9kIjogMjEsICJyc2lfc21hX3BlcmlvZCI6IDE4LCAic21hX3RyZW5kX3BlcmlvZCI6IDEyfQ=="
         }
         return dna_dict.get(symbol, "")
