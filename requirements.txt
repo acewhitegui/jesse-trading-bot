@@ -1,3 +1,5 @@
 jesse==1.9.8
 setuptools<81
 jesse-live==1.9.8
+grpcio==1.51.3
+ray==2.47.1

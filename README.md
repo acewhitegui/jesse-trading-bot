@@ -2,6 +2,9 @@
 
 This is template from which you can create your own Jesse project. 
 
+## Source run
+jesse run
+
 ## Usage
 Assuming that you already have installed the environment dependencies, you can run the following command to create your project:
 
