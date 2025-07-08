@@ -247,3 +247,6 @@ class SMABollingStrategy(Strategy):
             {'name': 'rsi_overbought', 'type': int, 'min': 60, 'max': 80, 'default': 70},
             {'name': 'sma_trend_period', 'type': int, 'min': 8, 'max': 30, 'default': 20},
         ]
+
+    def dna(self) -> str:
+        return "eyJhZHhfcGVyaW9kIjogMTMsICJhZHhfdGhyZXNob2xkIjogMjQsICJiYl9wZXJpb2QiOiAxMCwgImJiX3dpZHRoX3RocmVzaG9sZCI6IDAuMDM3NjcyMjY3OTE1MzY0MjksICJyc2lfb3ZlcmJvdWdodCI6IDc5LCAicnNpX292ZXJzb2xkIjogMjYsICJyc2lfcGVyaW9kIjogMTQsICJyc2lfc21hX3BlcmlvZCI6IDE1LCAic21hX3RyZW5kX3BlcmlvZCI6IDI1fQ=="
