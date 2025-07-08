@@ -179,34 +179,68 @@ class YuanbaoSMABollingStrategy(Strategy):
     # ------------------------------
     def calculate_position_size(self) -> float:
         balance = self.balance
-        if balance < 10:
-            return 0
-
         current_price = self.current_close
 
+        # Early validation checks
+        if balance <= 0 or current_price <= 0:
+            return 0
+
+        # Minimum balance requirement
+        if balance < 50:  # Increased from 10 to 50
+            return 0
+
+        # Calculate ATR value
         if len(self.atr) > 0:
             atr_value = self.atr[-1]
         else:
-            atr_value = abs(current_price * 0.01)  # Fallback to 1% of price
+            atr_value = abs(current_price * 0.02)  # Fallback to 2% of price
 
+        # Ensure ATR is reasonable
+        if atr_value <= 0 or atr_value > current_price * 0.1:  # ATR shouldn't be more than 10% of price
+            atr_value = current_price * 0.02
+
+        # Calculate position size based on risk
         max_risk = balance * 0.01  # 1% risk per trade
-        position_size = max_risk / (self.hp['stop_loss_atr_multiplier'] * atr_value)
+        stop_loss_distance = self.hp['stop_loss_atr_multiplier'] * atr_value
 
+        # Ensure stop loss distance is reasonable
+        if stop_loss_distance <= 0:
+            stop_loss_distance = current_price * 0.02
+
+        position_size = max_risk / stop_loss_distance
+
+        # Convert to quantity
         qty = utils.size_to_qty(position_size, current_price, fee_rate=self.fee_rate)
 
-        min_qty = utils.size_to_qty(10, current_price, fee_rate=self.fee_rate)
-        return max(qty, min_qty)
+        # Calculate minimum quantity based on balance and price
+        min_position_size = max(balance * 0.001, 20)  # At least 0.1% of balance or $20
+        min_qty = utils.size_to_qty(min_position_size, current_price, fee_rate=self.fee_rate)
+
+        # Ensure we have a reasonable minimum
+        if min_qty <= 0:
+            min_qty = 0.001  # Fallback minimum
+
+        # Return the larger of calculated qty or minimum qty
+        final_qty = max(qty, min_qty)
+
+        # Final safety check
+        if final_qty <= 0:
+            final_qty = 0.001  # Absolute minimum fallback
+
+        return final_qty
 
     # ------------------------------
     # Position Management (Entry/Exit)
     # ------------------------------
     def go_long(self):
         qty = self.calculate_position_size()
-        self.buy = qty, self.current_close
+        if qty > 0:  # Additional safety check
+            self.buy = qty, self.current_close
 
     def go_short(self):
         qty = self.calculate_position_size()
-        self.sell = qty, self.current_close
+        if qty > 0:  # Additional safety check
+            self.sell = qty, self.current_close
 
     # ------------------------------
     # Adaptive Stop Loss & Take Profit
