@@ -1,6 +1,7 @@
 import jesse.indicators as ta
 from jesse import utils
 from jesse.strategies import Strategy
+import numpy as np
 
 
 class YuanbaoSMABollingStrategy(Strategy):
@@ -36,6 +37,8 @@ class YuanbaoSMABollingStrategy(Strategy):
         self.take_profit_atr_multiplier = 3.0
 
         self.entry_price = None
+        self.stop_loss_price = None
+        self.take_profit_price = None
 
     # ------------------------------
     # Indicator Calculations (multi-timeframe)
@@ -70,9 +73,18 @@ class YuanbaoSMABollingStrategy(Strategy):
 
     @property
     def bb_width(self):
-        # Prevent division by zero
-        base = self.bb_middle if min(self.bb_middle) > 0 else [v if v != 0 else 1e-6 for v in self.bb_middle]
-        return (self.bb_upper - self.bb_lower) / base
+        """Fixed: Proper division by zero handling"""
+        if len(self.bb_middle) == 0:
+            return np.array([])
+        
+        # Use numpy for vectorized operations and avoid division by zero
+        middle = np.array(self.bb_middle)
+        upper = np.array(self.bb_upper)
+        lower = np.array(self.bb_lower)
+        
+        # Replace zero values with a small epsilon to avoid division by zero
+        middle_safe = np.where(middle == 0, 1e-8, middle)
+        return (upper - lower) / middle_safe
 
     @property
     def sma_trend(self):
@@ -81,10 +93,13 @@ class YuanbaoSMABollingStrategy(Strategy):
     @property
     def hourly_sma(self):
         """1h SMA50 for confirmation."""
-        hourly_candles = self.get_candles(self.exchange, self.symbol, '1h')
-        if hourly_candles is not None and len(hourly_candles) >= 50:
-            return ta.sma(hourly_candles, period=50, sequential=False)[-1]
-        return None
+        try:
+            hourly_candles = self.get_candles(self.exchange, self.symbol, '1h')
+            if hourly_candles is not None and len(hourly_candles) >= 50:
+                return ta.sma(hourly_candles, period=50, sequential=False)
+            return None
+        except:
+            return None
 
     @property
     def atr(self):
@@ -92,18 +107,23 @@ class YuanbaoSMABollingStrategy(Strategy):
 
     @property
     def close(self):
-        return [candle[4] for candle in self.candles]
+        return self.candles[:, 4]  # More efficient numpy access
 
     @property
     def volume(self):
-        return [candle[5] for candle in self.candles]
+        return self.candles[:, 5]  # More efficient numpy access
+
+    @property
+    def volume_ema(self):
+        """Fixed: Use Jesse's EMA calculation"""
+        return ta.ema(self.volume, period=20, sequential=True)
 
     # ------------------------------
     # Market State Detection
     # ------------------------------
     def is_sideways_market(self):
         """Filter for consolidating or flat markets using BB width, ADX, and RSI volatility."""
-        if len(self.adx) < 2 or len(self.bb_width) < 2:
+        if len(self.adx) < 2 or len(self.bb_width) < 2 or len(self.rsi) < 2:
             return True
 
         current_adx = self.adx[-1]
@@ -119,28 +139,30 @@ class YuanbaoSMABollingStrategy(Strategy):
 
     def is_strong_uptrend(self):
         """Confirm strong uptrend for longs: price > SMA, ADX strong, multi-timeframe align, volume spike."""
-        if len(self.candles) < self.min_trend_period * 2:
+        if len(self.candles) < max(self.min_trend_period * 2, 20):
             return False
 
         above_sma = self.close[-1] > self.sma_trend[-1]
         adx_rising = self.adx[-1] > self.adx_threshold and self.adx[-1] > self.adx[-2]
         hourly_trend_up = self.hourly_sma is not None and self.close[-1] > self.hourly_sma
-        avg_volume = utils.ema(self.volume, period=20)
-        volume_spike = self.volume[-1] > avg_volume * self.volume_spike_factor
+        
+        # Fixed: Use proper volume EMA calculation
+        volume_spike = self.volume[-1] > self.volume_ema[-1] * self.volume_spike_factor
 
         # Require at least 3/4 conditions
         return sum([above_sma, adx_rising, hourly_trend_up, volume_spike]) >= 3
 
     def is_strong_downtrend(self):
         """Confirm strong downtrend for shorts: price < SMA, ADX strong, multi-timeframe align, volume spike."""
-        if len(self.candles) < self.min_trend_period * 2:
+        if len(self.candles) < max(self.min_trend_period * 2, 20):
             return False
 
         below_sma = self.close[-1] < self.sma_trend[-1]
         adx_rising = self.adx[-1] > self.adx_threshold and self.adx[-1] > self.adx[-2]
         hourly_trend_down = self.hourly_sma is not None and self.close[-1] < self.hourly_sma
-        avg_volume = utils.ema(self.volume, period=20)
-        volume_spike = self.volume[-1] > avg_volume * self.volume_spike_factor
+        
+        # Fixed: Use proper volume EMA calculation
+        volume_spike = self.volume[-1] > self.volume_ema[-1] * self.volume_spike_factor
 
         return sum([below_sma, adx_rising, hourly_trend_down, volume_spike]) >= 3
 
@@ -155,6 +177,10 @@ class YuanbaoSMABollingStrategy(Strategy):
             - RSI crosses up above its SMA (momentum shift)
             - Confirm strong uptrend
         """
+        if (len(self.rsi) < 2 or len(self.rsi_sma) < 2 or 
+            len(self.bb_middle) < 1 or len(self.close) < 1):
+            return False
+            
         if self.is_sideways_market():
             return False
 
@@ -172,6 +198,10 @@ class YuanbaoSMABollingStrategy(Strategy):
             - RSI crosses below its SMA (momentum down)
             - Confirm strong downtrend
         """
+        if (len(self.rsi) < 2 or len(self.rsi_sma) < 2 or 
+            len(self.bb_upper) < 1 or len(self.close) < 1):
+            return False
+            
         if self.is_sideways_market():
             return False
 
@@ -185,17 +215,27 @@ class YuanbaoSMABollingStrategy(Strategy):
     # Dynamic Position Sizing
     # ------------------------------
     def calculate_position_size(self, is_long: bool) -> float:
-        """ATR-based position sizing, capped per trade risk."""
-        if self.available_margin < 10:
+        """Fixed: Use proper Jesse balance property and ATR-based position sizing"""
+        # Fixed: Use correct balance property
+        balance = self.balance
+        if balance < 10:
             return 0
 
         current_price = self.close[-1]
-        atr_value = self.atr[-1] if len(self.atr) >= self.atr_period else max(0.1, abs(self.close[-1] * 0.01))
-        max_risk = self.available_margin * self.max_risk_per_trade
-
+        
+        # Fixed: Proper ATR value handling
+        if len(self.atr) >= self.atr_period:
+            atr_value = self.atr[-1]
+        else:
+            atr_value = abs(current_price * 0.01)  # Fallback to 1% of price
+        
+        max_risk = balance * self.max_risk_per_trade
         position_size = max_risk / (self.stop_loss_atr_multiplier * atr_value)
-        min_qty = 10
-        qty = utils.size_to_qty(position_size, current_price, precision=6)
+        
+        qty = utils.size_to_qty(position_size, current_price, fee_rate=self.fee_rate)
+        
+        # Minimum quantity check
+        min_qty = utils.size_to_qty(10, current_price, fee_rate=self.fee_rate)
         return max(qty, min_qty)
 
     # ------------------------------
@@ -215,39 +255,52 @@ class YuanbaoSMABollingStrategy(Strategy):
     # Adaptive Stop Loss & Take Profit
     # ------------------------------
     def update_position(self):
-        # Use the last 20 bars ATR for recency
-        if self.position.is_long:
-            if len(self.candles) >= 20:
-                recent_atr = ta.atr(self.candles[-20:], period=self.atr_period, sequential=False)[-1]
-                stop_loss_price = self.entry_price - self.stop_loss_atr_multiplier * recent_atr
-                take_profit_price = self.entry_price + self.take_profit_atr_multiplier * recent_atr
+        """Fixed: Proper position management with Jesse framework"""
+        if not self.position or self.entry_price is None:
+            return
+            
+        # Calculate ATR for stop loss/take profit
+        if len(self.atr) >= self.atr_period:
+            current_atr = self.atr[-1]
+        else:
+            current_atr = abs(self.close[-1] * 0.01)  # Fallback
 
-                self.stop_loss = stop_loss_price
-                self.take_profit = take_profit_price
+        if self.position.is_long:
+            # Calculate stop loss and take profit for long position
+            stop_loss_price = self.entry_price - self.stop_loss_atr_multiplier * current_atr
+            take_profit_price = self.entry_price + self.take_profit_atr_multiplier * current_atr
+            
+            # Check exit conditions
+            if (self.close[-1] <= stop_loss_price or 
+                self.close[-1] >= take_profit_price):
+                self.liquidate()
 
         elif self.position.is_short:
-            if len(self.candles) < 20:
-                return
-
-            recent_atr = ta.atr(self.candles[-20:], period=self.atr_period, sequential=False)[-1]
-            stop_loss_price = self.entry_price + self.stop_loss_atr_multiplier * recent_atr
-            take_profit_price = self.entry_price - self.take_profit_atr_multiplier * recent_atr
-
-            self.stop_loss = stop_loss_price
-            self.take_profit = take_profit_price
+            # Calculate stop loss and take profit for short position
+            stop_loss_price = self.entry_price + self.stop_loss_atr_multiplier * current_atr
+            take_profit_price = self.entry_price - self.take_profit_atr_multiplier * current_atr
+            
+            # Check exit conditions
+            if (self.close[-1] >= stop_loss_price or 
+                self.close[-1] <= take_profit_price):
+                self.liquidate()
 
     # ------------------------------
     # Other Callbacks
     # ------------------------------
     def on_open_position(self, order):
-        """Record entry price when position is opened."""
-        self.entry_price = self.close[-1]
+        """Fixed: Record entry price from order, not current price"""
+        self.entry_price = order.price
 
     def on_close_position(self, order):
         """Clear all stops and entry price when position is closed."""
-        self.stop_loss = None
-        self.take_profit = None
         self.entry_price = None
+        self.stop_loss_price = None
+        self.take_profit_price = None
+
+    def should_cancel_entry(self) -> bool:
+        """Cancel entry if conditions changed"""
+        return False
 
     def hyperparameters(self):
         # Extended ranges for long & short symmetry
