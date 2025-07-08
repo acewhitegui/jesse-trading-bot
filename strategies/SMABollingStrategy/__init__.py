@@ -176,10 +176,6 @@ class SMABollingStrategy(Strategy):
         """Short conditions - not used in spot trading"""
         return False
 
-    def should_cancel_entry(self) -> bool:
-        """Cancel entry conditions"""
-        return False
-
     def go_long(self):
         """Open long position"""
         # Use 25% of available balance
@@ -217,9 +213,18 @@ class SMABollingStrategy(Strategy):
             if close_long_signal:
                 self.liquidate()
 
-    def on_open_position(self, order):
-        """Callback when a position is opened"""
-        pass
+    def should_cancel_entry(self) -> bool:
+        return True
+
+    def on_open_position(self, order) -> None:
+        if self.is_long:
+            # Set stop loss and take profit for long position
+            self.stop_loss = self.position.qty, self.position.entry_price - (self.atr * 4)
+            self.take_profit = self.position.qty, self.position.entry_price + (self.atr * 3)
+        elif self.is_short:
+            # Set stop loss and take profit for short position
+            self.stop_loss = self.position.qty, self.position.entry_price + (self.atr * 4)
+            self.take_profit = self.position.qty, self.position.entry_price - (self.atr * 3)
 
     def on_close_position(self, order):
         """Callback when a position is closed"""
@@ -245,4 +250,8 @@ class SMABollingStrategy(Strategy):
         ]
 
     def dna(self) -> str:
-        return "eyJhZHhfcGVyaW9kIjogOCwgImFkeF90aHJlc2hvbGQiOiAyOCwgImJiX3BlcmlvZCI6IDM3LCAiYmJfd2lkdGhfdGhyZXNob2xkIjogMC4wMzQsICJyc2lfcGVyaW9kIjogMjIsICJyc2lfc21hX3BlcmlvZCI6IDgsICJzbWFfdHJlbmRfcGVyaW9kIjogMjV9"
+        symbol = self.symbol
+        dna_dict = {
+            "BTC-USDT": "eyJhZHhfcGVyaW9kIjogOCwgImFkeF90aHJlc2hvbGQiOiAyOCwgImJiX3BlcmlvZCI6IDM3LCAiYmJfd2lkdGhfdGhyZXNob2xkIjogMC4wMzQsICJyc2lfcGVyaW9kIjogMjIsICJyc2lfc21hX3BlcmlvZCI6IDgsICJzbWFfdHJlbmRfcGVyaW9kIjogMjV9"
+        }
+        return dna_dict.get(symbol, "")
