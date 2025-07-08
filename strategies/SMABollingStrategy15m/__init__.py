@@ -33,6 +33,10 @@ class SMABollingStrategy15m(Strategy):
         return ta.rsi(self.candles, period=self.rsi_period, sequential=True)
 
     @property
+    def atr(self):
+        return ta.atr(self.candles)
+
+    @property
     def rsi_sma(self):
         """SMA based on RSI"""
         return ta.sma(self.rsi, period=self.rsi_sma_period, sequential=True)

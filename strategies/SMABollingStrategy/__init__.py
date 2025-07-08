@@ -72,6 +72,10 @@ class SMABollingStrategy(Strategy):
         """SMA for trend determination"""
         return ta.sma(self.candles, period=self.sma_trend_period, sequential=True)
 
+    @property
+    def atr(self):
+        return ta.atr(self.candles)
+
     def is_sideways_market(self):
         """Determine if market is sideways"""
         # Check if data is sufficient
