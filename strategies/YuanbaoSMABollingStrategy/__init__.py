@@ -3,246 +3,264 @@ from jesse import utils
 from jesse.strategies import Strategy
 
 
-class YuanbaoSMABollingStrategy(Strategy):
+class YuanbaoSMABollingStrategyWithShort(Strategy):
     """
-    Strategy Overview:
-    1. Define overbought and oversold zones: oversold 30, overbought 70
-    2. Use RSI to calculate an RSI-based SMA, RSI length 14
-    3. Calculate Bollinger Bands
-
-    Entry/Exit Conditions:
-    1. When price breaks below the Bollinger lower band and RSI-based SMA crosses above RSI or stays above, go long
-    2. When price breaks above the Bollinger upper band and RSI-based SMA crosses below RSI or stays below, exit long
-    3. No trading in sideways market
+    优化目标：提升夏普率（支持多空双向交易）
+    核心改进：
+    - 新增强下降趋势判断（支持做空）
+    - 多空双向信号过滤（结合多时间框架趋势）
+    - 动态空头仓位管理（基于波动率）
+    - 智能空头止损止盈（反向波动率控制）
     """
 
     def __init__(self):
         super().__init__()
-        # Strategy parameters
-        self.rsi_period = 12
-        self.rsi_sma_period = 14
-        self.bb_period = 24
-        self.adx_period = 12
-        self.adx_threshold = 22
-        self.bb_width_threshold = 0.01
-        self.sma_trend_period = 14
+        # 基础参数（可优化范围）
+        self.rsi_period = 12  # RSI计算周期
+        self.rsi_sma_period = 14  # RSI的SMA周期
+        self.bb_period = 20  # 布林带周期
+        self.adx_period = 14  # ADX周期
+        self.atr_period = 14  # ATR周期（用于波动率）
+        self.min_trend_period = 3  # 最小趋势确认周期
 
+        # 策略阈值（可优化）
+        self.adx_threshold = 22  # ADX趋势强度阈值
+        self.bb_width_threshold = 0.015  # 布林带宽度阈值（横向市场）
+        self.volume_spike_factor = 1.5  # 成交量放大倍数（过滤假突破）
+        self.trend_confirmation = 2  # 趋势确认所需连续条件数
+
+        # 风险参数（多空统一）
+        self.max_risk_per_trade = 0.01  # 单笔最大风险（账户1%）
+        self.stop_loss_atr_multiplier = 2.0  # 止损ATR倍数
+        self.take_profit_atr_multiplier = 3.0  # 止盈ATR倍数
+
+        self.entry_price = None
+
+    # ------------------------------
+    # 指标计算（新增多时间框架支持）
+    # ------------------------------
     @property
     def rsi(self):
-        """RSI indicator"""
         return ta.rsi(self.candles, period=self.rsi_period, sequential=True)
 
     @property
     def rsi_sma(self):
-        """SMA based on RSI"""
         return ta.sma(self.rsi, period=self.rsi_sma_period, sequential=True)
 
     @property
     def bollinger_bands(self):
-        """Bollinger Bands"""
         return ta.bollinger_bands(self.candles, period=self.bb_period, sequential=True)
 
     @property
     def bb_upper(self):
-        """Bollinger upper band"""
         return self.bollinger_bands.upperband
 
     @property
     def bb_lower(self):
-        """Bollinger lower band"""
         return self.bollinger_bands.lowerband
 
     @property
     def bb_middle(self):
-        """Bollinger middle band"""
         return self.bollinger_bands.middleband
 
     @property
     def adx(self):
-        """ADX indicator"""
         return ta.adx(self.candles, period=self.adx_period, sequential=True)
 
     @property
     def bb_width(self):
-        """Bollinger Band width"""
         return (self.bb_upper - self.bb_lower) / self.bb_middle
 
     @property
     def sma_trend(self):
-        """SMA for trend determination"""
-        return ta.sma(self.candles, period=self.sma_trend_period, sequential=True)
+        return ta.sma(self.candles, period=50, sequential=True)  # 50周期SMA（长期趋势）
 
+    @property
+    def hourly_sma(self):
+        """1小时图50周期SMA（多时间框架趋势确认）"""
+        hourly_candles = self.get_candles(self.symbol, '1h')
+        return ta.sma(hourly_candles, period=50, sequential=False)[-1] if len(hourly_candles) >= 50 else None
+
+    @property
+    def atr(self):
+        return ta.atr(self.candles, period=self.atr_period, sequential=True)
+
+    @property
+    def close(self):
+        """简化收盘价获取"""
+        return [candle[4] for candle in self.candles]
+
+    # ------------------------------
+    # 市场状态判断（多空通用）
+    # ------------------------------
     def is_sideways_market(self):
-        """Determine if market is sideways"""
-        # Check if data is sufficient
+        """结合布林带宽度+ADX+RSI波动判断横向市场"""
         if len(self.adx) < 2 or len(self.bb_width) < 2:
-            return True  # If insufficient data, treat as sideways to avoid trading
+            return True
 
         current_adx = self.adx[-1]
         current_bb_width = self.bb_width[-1]
+        current_rsi = self.rsi[-1]
+        prev_rsi = self.rsi[-2]
 
-        # Sideways conditions: ADX low (weak trend) or Bollinger width small (low volatility)
-        is_sideways = (current_adx < self.adx_threshold or
-                       current_bb_width < self.bb_width_threshold)
+        # 横向市场条件：ADX弱+布林带窄+RSI波动小
+        rsi_volatility = abs(current_rsi - prev_rsi)
+        return (current_adx < self.adx_threshold and
+                current_bb_width < self.bb_width_threshold and
+                rsi_volatility < 5)  # RSI波动小于5%
 
-        return is_sideways
-
-    def is_uptrend(self):
-        """Determine if uptrend"""
-        # Check if data is sufficient
-        if (len(self.candles) < 2 or len(self.adx) < 2 or
-                len(self.sma_trend) < 2 or len(self.bb_middle) < 2):
+    def is_strong_uptrend(self):
+        """强上升趋势确认（多单开仓条件）"""
+        if len(self.candles) < self.min_trend_period * 2:
             return False
 
-        current_price = self.candles[-1][4]  # close price
-        previous_price = self.candles[-2][4]
-        current_adx = self.adx[-1]
-        current_sma = self.sma_trend[-1]
-        bb_mid = self.bb_middle[-1]
+        # 条件1：价格>长期SMA（50周期）
+        above_sma = self.close[-1] > self.sma_trend[-1]
+        # 条件2：ADX>阈值且上升（趋势强化）
+        adx_rising = self.adx[-1] > self.adx_threshold and self.adx[-1] > self.adx[-2]
+        # 条件3：1小时图趋势同向（多时间框架确认）
+        hourly_trend_up = self.hourly_sma and self.close[-1] > self.hourly_sma
+        # 条件4：成交量放大（突破有效性）
+        avg_volume = utils.ema(self.candles[:, 5], period=20)
+        volume_spike = self.candles[-1][5] > avg_volume * self.volume_spike_factor
 
-        # Uptrend conditions:
-        # 1. ADX shows enough trend strength (above threshold)
-        # 2. Price above SMA and SMA trending up
-        # 3. Price above Bollinger middle band
-        # 4. Price is rising
-        uptrend_conditions = [
-            current_adx >= self.adx_threshold,  # Trend strength
-            current_price > current_sma,  # Price above trend line
-            current_price > bb_mid,  # Price above mid band
-            current_price > previous_price,  # Price is rising
-        ]
+        return sum([above_sma, adx_rising, hourly_trend_up, volume_spike]) >= 3
 
-        # At least two conditions
-        return sum(uptrend_conditions) >= 2
-
-    def is_downtrend(self):
-        """Determine if downtrend"""
-        # Check if data is sufficient
-        if (len(self.candles) < 2 or len(self.adx) < 2 or
-                len(self.sma_trend) < 2 or len(self.bb_middle) < 2):
+    def is_strong_downtrend(self):
+        """强下降趋势确认（空单开仓条件）"""
+        if len(self.candles) < self.min_trend_period * 2:
             return False
 
-        current_price = self.candles[-1][4]  # close price
-        previous_price = self.candles[-2][4]
-        current_adx = self.adx[-1]
-        current_sma = self.sma_trend[-1]
-        bb_mid = self.bb_middle[-1]
+        # 条件1：价格<长期SMA（50周期）
+        below_sma = self.close[-1] < self.sma_trend[-1]
+        # 条件2：ADX>阈值且上升（趋势强化）
+        adx_rising = self.adx[-1] > self.adx_threshold and self.adx[-1] > self.adx[-2]
+        # 条件3：1小时图趋势同向（多时间框架确认）
+        hourly_trend_down = self.hourly_sma and self.close[-1] < self.hourly_sma
+        # 条件4：成交量放大（恐慌性抛售）
+        avg_volume = utils.ema(self.candles[:, 5], period=20)
+        volume_spike = self.candles[-1][5] > avg_volume * self.volume_spike_factor
 
-        # Downtrend conditions:
-        # 1. ADX shows enough trend strength (above threshold)
-        # 2. Price below SMA and SMA trending down
-        # 3. Price below Bollinger middle band
-        # 4. Price is falling
-        downtrend_conditions = [
-            current_adx >= self.adx_threshold,  # Trend strength
-            current_price < current_sma,  # Price below trend line
-            current_price < bb_mid,  # Price below mid band
-            current_price < previous_price,  # Price is falling
-        ]
+        return sum([below_sma, adx_rising, hourly_trend_down, volume_spike]) >= 3
 
-        # At least two conditions
-        return sum(downtrend_conditions) >= 2
-
+    # ------------------------------
+    # 交易信号（多空双向）
+    # ------------------------------
     def should_long(self) -> bool:
-        """Long conditions"""
-        # Check if data is sufficient
-        if (len(self.rsi) < 2 or len(self.rsi_sma) < 2 or
-                len(self.bb_lower) < 2 or len(self.bb_middle) < 2):
-            return False
-
-        # Check if market is sideways
+        """做多条件：强上升趋势+价格跌破中轨+RSI SMA上穿"""
         if self.is_sideways_market():
             return False
 
-        current_price = self.candles[-1][4]  # close price
-        current_rsi = self.rsi[-1]
-        current_rsi_sma = self.rsi_sma[-1]
-        bb_lower = self.bb_lower[-1]
-        bb_middle = self.bb_middle[-1]
+        # 基础信号：价格跌破布林带中轨+RSI SMA上穿
+        price_below_mid = self.close[-1] < self.bb_middle[-1]
+        rsi_sma_cross_above = self.rsi_sma[-1] > self.rsi[-1] and self.rsi_sma[-2] <= self.rsi[-2]
 
-        # Long signal: Price breaks below Bollinger lower band AND RSI SMA crosses above RSI or stays above
-        if self.is_uptrend():
-            # In uptrend, use mid band as support
-            long_signal = (current_price < bb_middle and
-                           current_rsi_sma > current_rsi)
-        else:
-            # Not uptrend, use lower band
-            long_signal = (current_price < bb_lower and
-                           current_rsi_sma > current_rsi)
+        # 强趋势过滤：仅在强上升趋势中交易
+        in_strong_uptrend = self.is_strong_uptrend()
 
-        return long_signal
+        return price_below_mid and rsi_sma_cross_above and in_strong_uptrend
 
     def should_short(self) -> bool:
-        """Short conditions - not used in spot trading"""
-        return False
+        """做空条件：强下降趋势+价格突破上轨+RSI SMA下穿"""
+        if self.is_sideways_market():
+            return False
 
-    def should_cancel_entry(self) -> bool:
-        """Cancel entry conditions"""
-        return False
+        # 基础信号：价格突破布林带上轨+RSI SMA下穿
+        price_above_upper = self.close[-1] > self.bb_upper[-1]
+        rsi_sma_cross_below = self.rsi_sma[-1] < self.rsi[-1] and self.rsi_sma[-2] >= self.rsi[-2]
 
+        # 强趋势过滤：仅在强下降趋势中交易
+        in_strong_downtrend = self.is_strong_downtrend()
+
+        return price_above_upper and rsi_sma_cross_below and in_strong_downtrend
+
+    # ------------------------------
+    # 动态仓位管理（多空统一）
+    # ------------------------------
+    def calculate_position_size(self, is_long: bool) -> float:
+        """基于ATR的动态仓位计算（控制单笔风险）"""
+        if self.available_margin < 10:  # 最小可用资金限制
+            return 0
+
+        current_price = self.close[-1]
+        atr_value = self.atr[-1] if len(self.atr) >= self.atr_period else 0.1  # 防止除零
+
+        # 单笔最大风险=账户余额*1%
+        max_risk = self.available_margin * self.max_risk_per_trade
+        # 仓位大小=最大风险/(止损幅度*价格)（做空时价格用当前价）
+        position_size = max_risk / (self.stop_loss_atr_multiplier * atr_value)
+
+        # 最小交易量限制（避免滑点过大）
+        min_qty = 10  # 根据具体交易对调整
+        qty = utils.size_to_qty(position_size, current_price, precision=6)
+        return max(qty, min_qty) if is_long else max(qty, min_qty)  # 空头最小数量需符合交易所要求
+
+    # ------------------------------
+    # 多空仓位管理（开仓/平仓）
+    # ------------------------------
     def go_long(self):
-        """Open long position"""
-        # Use 25% of available balance
-        cash_pct = 0.50
-        available_balance = self.available_margin
-        trade_amount = available_balance * cash_pct
-
-        # Minimum trade amount
-        min_trade_amount = 25
-        if trade_amount < min_trade_amount:
-            return
-
-        current_price = self.candles[-1][4]
-        qty = utils.size_to_qty(trade_amount, current_price, precision=6)
-
-        self.buy = qty, current_price
+        qty = self.calculate_position_size(is_long=True)
+        if qty > 0:
+            self.buy = qty, self.close[-1]
 
     def go_short(self):
-        """Open short position - not used in spot trading"""
-        pass
+        qty = self.calculate_position_size(is_long=False)
+        if qty > 0:
+            self.sell = qty, self.close[-1]  # 现货做空使用sell操作
 
+    # ------------------------------
+    # 多空止损止盈（动态调整）
+    # ------------------------------
     def update_position(self):
-        """Update open position logic"""
-        # If holding a long position, check exit condition
-        if self.position.pnl_percentage > 0:  # Has long position
-            current_price = self.candles[-1][4]
-            current_rsi = self.rsi[-1]
-            current_rsi_sma = self.rsi_sma[-1]
-            bb_middle = self.bb_middle[-1]
+        if self.position.is_long:
+            # 多头止损：入场价 - 止损ATR倍数*ATR
+            # 多头止盈：入场价 + 止盈ATR倍数*ATR
+            if len(self.candles) >= 20:
+                recent_atr = ta.atr(self.candles[-20:], period=self.atr_period, sequential=False)[-1]
+                stop_loss_price = self.entry_price - self.stop_loss_atr_multiplier * recent_atr
+                take_profit_price = self.entry_price + self.take_profit_atr_multiplier * self.atr[-1]
 
-            # Exit signal: Price breaks above Bollinger middle band AND RSI SMA crosses below RSI or stays below
-            close_long_signal = (current_price > bb_middle and
-                                 current_rsi_sma < current_rsi)
+                # 更新止损止盈
+                self.stop_loss = stop_loss_price
+                self.take_profit = take_profit_price
 
-            if close_long_signal:
-                self.liquidate()
+        elif self.position.is_short:
+            # 空头止损：入场价 + 止损ATR倍数*ATR（防止价格上涨）
+            # 空头止盈：入场价 - 止盈ATR倍数*ATR（防止价格下跌）
+            if len(self.candles) >= 20:
+                recent_atr = ta.atr(self.candles[-20:], period=self.atr_period, sequential=False)[-1]
+                stop_loss_price = self.entry_price + self.stop_loss_atr_multiplier * recent_atr  # 空头止损向上
+                take_profit_price = self.entry_price - self.take_profit_atr_multiplier * self.atr[-1]  # 空头止盈向下
 
+                # 更新止损止盈
+                self.stop_loss = stop_loss_price
+                self.take_profit = take_profit_price
+
+        # 触发止盈/止损（Jesse自动处理，当价格触及时平仓）
+        # 注意：需确保策略参数中启用了自动止损止盈（默认开启）
+
+    # ------------------------------
+    # 其他回调函数
+    # ------------------------------
     def on_open_position(self, order):
-        """Callback when a position is opened"""
-        pass
+        """开仓后记录入场价"""
+        self.entry_price = self.close[-1]  # 记录当前收盘价作为入场价
 
     def on_close_position(self, order):
-        """Callback when a position is closed"""
-        pass
-
-    def terminate(self):
-        """Strategy end statistics"""
-        pass
+        """平仓后重置止损止盈"""
+        self.stop_loss = None
+        self.take_profit = None
+        self.entry_price = None  # 清空入场价记录
 
     def hyperparameters(self):
-        """
-        Returns a list of dicts describing hyperparameters for optimization.
-        Each dict contains 'name', 'type', 'min', 'max', and 'default' keys.
-        """
+        # 扩展参数范围以适应多空场景（部分参数需对称调整）
         return [
-            {'name': 'rsi_period', 'type': int, 'min': 8, 'max': 24, 'default': 14},
-            {'name': 'rsi_sma_period', 'type': int, 'min': 8, 'max': 24, 'default': 14},
-            {'name': 'bb_period', 'type': int, 'min': 10, 'max': 40, 'default': 20},
-            {'name': 'adx_period', 'type': int, 'min': 8, 'max': 24, 'default': 14},
-            {'name': 'adx_threshold', 'type': int, 'min': 10, 'max': 40, 'default': 25},
-            {'name': 'bb_width_threshold', 'type': float, 'min': 0.005, 'max': 0.05, "step": 0.001, 'default': 0.02},
-            {'name': 'sma_trend_period', 'type': int, 'min': 8, 'max': 30, 'default': 20},
+            {'name': 'rsi_period', 'type': int, 'min': 8, 'max': 16, 'default': 12},
+            {'name': 'rsi_sma_period', 'type': int, 'min': 10, 'max': 18, 'default': 14},
+            {'name': 'bb_period', 'type': int, 'min': 16, 'max': 24, 'default': 20},
+            {'name': 'adx_threshold', 'type': int, 'min': 18, 'max': 26, 'default': 22},
+            {'name': 'bb_width_threshold', 'type': float, 'min': 0.01, 'max': 0.02, 'step': 0.002, 'default': 0.015},
+            {'name': 'volume_spike_factor', 'type': float, 'min': 1.3, 'max': 1.8, 'step': 0.1, 'default': 1.5},
+            {'name': 'stop_loss_atr_multiplier', 'type': float, 'min': 1.5, 'max': 2.5, 'step': 0.2, 'default': 2.0},
+            {'name': 'take_profit_atr_multiplier', 'type': float, 'min': 2.5, 'max': 3.5, 'step': 0.2, 'default': 3.0},
         ]
-
-    def dna(self) -> str:
-        return "eyJhZHhfcGVyaW9kIjogMTMsICJhZHhfdGhyZXNob2xkIjogMjQsICJiYl9wZXJpb2QiOiAxMCwgImJiX3dpZHRoX3RocmVzaG9sZCI6IDAuMDM3NjcyMjY3OTE1MzY0MjksICJyc2lfb3ZlcmJvdWdodCI6IDc5LCAicnNpX292ZXJzb2xkIjogMjYsICJyc2lfcGVyaW9kIjogMTQsICJyc2lfc21hX3BlcmlvZCI6IDE1LCAic21hX3RyZW5kX3BlcmlvZCI6IDI1fQ=="
