@@ -5,84 +5,61 @@ import numpy as np
 
 
 class YuanbaoSMABollingStrategy(Strategy):
-    """
-    Objective: Improve Sharpe ratio (supports both long and short trades)
-    Core Enhancements:
-    - Enhanced downtrend detection (enable shorts)
-    - Dual-side signal filtering (multi-timeframe trend check)
-    - Dynamic position sizing (volatility-based)
-    - Intelligent SL/TP (volatility adaptive)
-    - More robust entry/exit rules for trending/sideways
-    """
-
-    def __init__(self):
-        super().__init__()
-        # Base parameters (can be optimized)
-        self.rsi_period = 12  # RSI lookback
-        self.rsi_sma_period = 14  # RSI SMA lookback
-        self.bb_period = 20  # Bollinger Bands period
-        self.adx_period = 14  # ADX period
-        self.atr_period = 14  # ATR period (volatility)
-        self.min_trend_period = 3  # Minimum bars for trend confirmation
-
-        # Strategy thresholds (can be optimized)
-        self.adx_threshold = 22
-        self.bb_width_threshold = 0.015  # Flat market filter
-        self.volume_spike_factor = 1.5  # Volume breakout filter
-        self.trend_confirmation = 2  # Minimum signals to confirm trend
-
-        # Risk settings (same for both sides)
-        self.max_risk_per_trade = 0.01  # 1% risk per trade
-        self.stop_loss_atr_multiplier = 2.0
-        self.take_profit_atr_multiplier = 3.0
-
-        self.entry_price = None
-        self.stop_loss_price = None
-        self.take_profit_price = None
+    def hyperparameters(self) -> list:
+        return [
+            {'name': 'rsi_period', 'type': int, 'min': 8, 'max': 16, 'default': 12},
+            {'name': 'rsi_sma_period', 'type': int, 'min': 10, 'max': 18, 'default': 14},
+            {'name': 'bb_period', 'type': int, 'min': 16, 'max': 24, 'default': 20},
+            {'name': 'adx_threshold', 'type': int, 'min': 18, 'max': 26, 'default': 22},
+            {'name': 'bb_width_threshold', 'type': float, 'min': 0.01, 'max': 0.02, 'step': 0.002, 'default': 0.015},
+            {'name': 'volume_spike_factor', 'type': float, 'min': 1.3, 'max': 1.8, 'step': 0.1, 'default': 1.5},
+            {'name': 'stop_loss_atr_multiplier', 'type': float, 'min': 1.5, 'max': 2.5, 'step': 0.2, 'default': 2.0},
+            {'name': 'take_profit_atr_multiplier', 'type': float, 'min': 2.5, 'max': 3.5, 'step': 0.2, 'default': 3.0},
+        ]
 
     # ------------------------------
     # Indicator Calculations (multi-timeframe)
     # ------------------------------
     @property
     def rsi(self):
-        return ta.rsi(self.candles, period=self.rsi_period, sequential=True)
+        return ta.rsi(self.candles, period=self.hp['rsi_period'], sequential=True)
 
     @property
     def rsi_sma(self):
-        return ta.sma(self.rsi, period=self.rsi_sma_period, sequential=True)
+        return ta.sma(self.rsi, period=self.hp['rsi_sma_period'], sequential=True)
 
     @property
     def bollinger_bands(self):
-        return ta.bollinger_bands(self.candles, period=self.bb_period, sequential=True)
+        return ta.bollinger_bands(self.candles, period=self.hp['bb_period'], sequential=True)
 
     @property
     def bb_upper(self):
+        """Bollinger upper band"""
         return self.bollinger_bands.upperband
 
     @property
     def bb_lower(self):
+        """Bollinger lower band"""
         return self.bollinger_bands.lowerband
 
     @property
     def bb_middle(self):
+        """Bollinger middle band"""
         return self.bollinger_bands.middleband
 
     @property
     def adx(self):
-        return ta.adx(self.candles, period=self.adx_period, sequential=True)
+        return ta.adx(self.candles, sequential=True)  # default period
 
     @property
     def bb_width(self):
-        """Fixed: Proper division by zero handling"""
         if len(self.bb_middle) == 0:
             return np.array([])
-        
-        # Use numpy for vectorized operations and avoid division by zero
+
         middle = np.array(self.bb_middle)
         upper = np.array(self.bb_upper)
         lower = np.array(self.bb_lower)
-        
-        # Replace zero values with a small epsilon to avoid division by zero
+
         middle_safe = np.where(middle == 0, 1e-8, middle)
         return (upper - lower) / middle_safe
 
@@ -92,7 +69,6 @@ class YuanbaoSMABollingStrategy(Strategy):
 
     @property
     def hourly_sma(self):
-        """1h SMA50 for confirmation."""
         try:
             hourly_candles = self.get_candles(self.exchange, self.symbol, '1h')
             if hourly_candles is not None and len(hourly_candles) >= 50:
@@ -103,26 +79,24 @@ class YuanbaoSMABollingStrategy(Strategy):
 
     @property
     def atr(self):
-        return ta.atr(self.candles, period=self.atr_period, sequential=True)
+        return ta.atr(self.candles, sequential=True)  # default period
 
     @property
     def close(self):
-        return self.candles[:, 4]  # More efficient numpy access
+        return self.candles[:, 2].astype(float)  # column 2 is close price
 
     @property
     def volume(self):
-        return self.candles[:, 5]  # More efficient numpy access
+        return self.candles[:, 5].astype(float)  # column 5 is volume
 
     @property
     def volume_ema(self):
-        """Fixed: Use Jesse's EMA calculation"""
         return ta.ema(self.volume, period=20, sequential=True)
 
     # ------------------------------
     # Market State Detection
     # ------------------------------
     def is_sideways_market(self):
-        """Filter for consolidating or flat markets using BB width, ADX, and RSI volatility."""
         if len(self.adx) < 2 or len(self.bb_width) < 2 or len(self.rsi) < 2:
             return True
 
@@ -132,37 +106,31 @@ class YuanbaoSMABollingStrategy(Strategy):
         prev_rsi = self.rsi[-2]
         rsi_volatility = abs(current_rsi - prev_rsi)
 
-        # Sideways if weak ADX, narrow BB, and low RSI movement
-        return (current_adx < self.adx_threshold and
-                current_bb_width < self.bb_width_threshold and
+        return (current_adx < self.hp['adx_threshold'] and
+                current_bb_width < self.hp['bb_width_threshold'] and
                 rsi_volatility < 5)
 
     def is_strong_uptrend(self):
-        """Confirm strong uptrend for longs: price > SMA, ADX strong, multi-timeframe align, volume spike."""
-        if len(self.candles) < max(self.min_trend_period * 2, 20):
+        if len(self.candles) < 40:
             return False
 
         above_sma = self.close[-1] > self.sma_trend[-1]
-        adx_rising = self.adx[-1] > self.adx_threshold and self.adx[-1] > self.adx[-2]
+        adx_rising = self.adx[-1] > self.hp['adx_threshold'] and self.adx[-1] > self.adx[-2]
         hourly_trend_up = self.hourly_sma is not None and self.close[-1] > self.hourly_sma
-        
-        # Fixed: Use proper volume EMA calculation
-        volume_spike = self.volume[-1] > self.volume_ema[-1] * self.volume_spike_factor
 
-        # Require at least 3/4 conditions
+        volume_spike = self.volume[-1] > self.volume_ema[-1] * self.hp['volume_spike_factor']
+
         return sum([above_sma, adx_rising, hourly_trend_up, volume_spike]) >= 3
 
     def is_strong_downtrend(self):
-        """Confirm strong downtrend for shorts: price < SMA, ADX strong, multi-timeframe align, volume spike."""
-        if len(self.candles) < max(self.min_trend_period * 2, 20):
+        if len(self.candles) < 40:
             return False
 
         below_sma = self.close[-1] < self.sma_trend[-1]
-        adx_rising = self.adx[-1] > self.adx_threshold and self.adx[-1] > self.adx[-2]
+        adx_rising = self.adx[-1] > self.hp['adx_threshold'] and self.adx[-1] > self.adx[-2]
         hourly_trend_down = self.hourly_sma is not None and self.close[-1] < self.hourly_sma
-        
-        # Fixed: Use proper volume EMA calculation
-        volume_spike = self.volume[-1] > self.volume_ema[-1] * self.volume_spike_factor
+
+        volume_spike = self.volume[-1] > self.volume_ema[-1] * self.hp['volume_spike_factor']
 
         return sum([below_sma, adx_rising, hourly_trend_down, volume_spike]) >= 3
 
@@ -170,17 +138,10 @@ class YuanbaoSMABollingStrategy(Strategy):
     # Trading Signals
     # ------------------------------
     def should_long(self) -> bool:
-        """
-        Long entry:
-            - Not sideways
-            - Price pulls back below BB mid
-            - RSI crosses up above its SMA (momentum shift)
-            - Confirm strong uptrend
-        """
-        if (len(self.rsi) < 2 or len(self.rsi_sma) < 2 or 
-            len(self.bb_middle) < 1 or len(self.close) < 1):
+        if (len(self.rsi) < 2 or len(self.rsi_sma) < 2 or
+                len(self.bb_middle) < 1 or len(self.close) < 1):
             return False
-            
+
         if self.is_sideways_market():
             return False
 
@@ -191,17 +152,10 @@ class YuanbaoSMABollingStrategy(Strategy):
         return price_below_mid and rsi_cross_above and strong_uptrend
 
     def should_short(self) -> bool:
-        """
-        Short entry:
-            - Not sideways
-            - Price pushes above BB upper
-            - RSI crosses below its SMA (momentum down)
-            - Confirm strong downtrend
-        """
-        if (len(self.rsi) < 2 or len(self.rsi_sma) < 2 or 
-            len(self.bb_upper) < 1 or len(self.close) < 1):
+        if (len(self.rsi) < 2 or len(self.rsi_sma) < 2 or
+                len(self.bb_upper) < 1 or len(self.close) < 1):
             return False
-            
+
         if self.is_sideways_market():
             return False
 
@@ -214,27 +168,23 @@ class YuanbaoSMABollingStrategy(Strategy):
     # ------------------------------
     # Dynamic Position Sizing
     # ------------------------------
-    def calculate_position_size(self, is_long: bool) -> float:
-        """Fixed: Use proper Jesse balance property and ATR-based position sizing"""
-        # Fixed: Use correct balance property
+    def calculate_position_size(self) -> float:
         balance = self.balance
         if balance < 10:
             return 0
 
         current_price = self.close[-1]
-        
-        # Fixed: Proper ATR value handling
-        if len(self.atr) >= self.atr_period:
+
+        if len(self.atr) > 0:
             atr_value = self.atr[-1]
         else:
             atr_value = abs(current_price * 0.01)  # Fallback to 1% of price
-        
-        max_risk = balance * self.max_risk_per_trade
-        position_size = max_risk / (self.stop_loss_atr_multiplier * atr_value)
-        
+
+        max_risk = balance * 0.01  # 1% risk per trade
+        position_size = max_risk / (self.hp['stop_loss_atr_multiplier'] * atr_value)
+
         qty = utils.size_to_qty(position_size, current_price, fee_rate=self.fee_rate)
-        
-        # Minimum quantity check
+
         min_qty = utils.size_to_qty(10, current_price, fee_rate=self.fee_rate)
         return max(qty, min_qty)
 
@@ -242,75 +192,32 @@ class YuanbaoSMABollingStrategy(Strategy):
     # Position Management (Entry/Exit)
     # ------------------------------
     def go_long(self):
-        qty = self.calculate_position_size(is_long=True)
-        if qty > 0:
-            self.buy = qty, self.close[-1]
+        qty = self.calculate_position_size()
+        self.buy = qty, self.close[-1]
 
     def go_short(self):
-        qty = self.calculate_position_size(is_long=False)
-        if qty > 0:
-            self.sell = qty, self.close[-1]
+        qty = self.calculate_position_size()
+        self.sell = qty, self.close[-1]
 
     # ------------------------------
     # Adaptive Stop Loss & Take Profit
     # ------------------------------
-    def update_position(self):
-        """Fixed: Proper position management with Jesse framework"""
-        if not self.position or self.entry_price is None:
+    def on_open_position(self, order) -> None:
+        if len(self.atr) == 0:
             return
-            
-        # Calculate ATR for stop loss/take profit
-        if len(self.atr) >= self.atr_period:
-            current_atr = self.atr[-1]
-        else:
-            current_atr = abs(self.close[-1] * 0.01)  # Fallback
 
-        if self.position.is_long:
-            # Calculate stop loss and take profit for long position
-            stop_loss_price = self.entry_price - self.stop_loss_atr_multiplier * current_atr
-            take_profit_price = self.entry_price + self.take_profit_atr_multiplier * current_atr
-            
-            # Check exit conditions
-            if (self.close[-1] <= stop_loss_price or 
-                self.close[-1] >= take_profit_price):
-                self.liquidate()
+        current_atr = self.atr[-1]
 
-        elif self.position.is_short:
-            # Calculate stop loss and take profit for short position
-            stop_loss_price = self.entry_price + self.stop_loss_atr_multiplier * current_atr
-            take_profit_price = self.entry_price - self.take_profit_atr_multiplier * current_atr
-            
-            # Check exit conditions
-            if (self.close[-1] >= stop_loss_price or 
-                self.close[-1] <= take_profit_price):
-                self.liquidate()
-
-    # ------------------------------
-    # Other Callbacks
-    # ------------------------------
-    def on_open_position(self, order):
-        """Fixed: Record entry price from order, not current price"""
-        self.entry_price = order.price
-
-    def on_close_position(self, order):
-        """Clear all stops and entry price when position is closed."""
-        self.entry_price = None
-        self.stop_loss_price = None
-        self.take_profit_price = None
+        if self.is_long:
+            stop_loss_price = self.position.entry_price - self.hp['stop_loss_atr_multiplier'] * current_atr
+            take_profit_price = self.position.entry_price + self.hp['take_profit_atr_multiplier'] * current_atr
+            self.stop_loss = self.position.qty, stop_loss_price
+            self.take_profit = self.position.qty, take_profit_price
+        elif self.is_short:
+            stop_loss_price = self.position.entry_price + self.hp['stop_loss_atr_multiplier'] * current_atr
+            take_profit_price = self.position.entry_price - self.hp['take_profit_atr_multiplier'] * current_atr
+            self.stop_loss = self.position.qty, stop_loss_price
+            self.take_profit = self.position.qty, take_profit_price
 
     def should_cancel_entry(self) -> bool:
-        """Cancel entry if conditions changed"""
         return False
-
-    def hyperparameters(self):
-        # Extended ranges for long & short symmetry
-        return [
-            {'name': 'rsi_period', 'type': int, 'min': 8, 'max': 16, 'default': 12},
-            {'name': 'rsi_sma_period', 'type': int, 'min': 10, 'max': 18, 'default': 14},
-            {'name': 'bb_period', 'type': int, 'min': 16, 'max': 24, 'default': 20},
-            {'name': 'adx_threshold', 'type': int, 'min': 18, 'max': 26, 'default': 22},
-            {'name': 'bb_width_threshold', 'type': float, 'min': 0.01, 'max': 0.02, 'step': 0.002, 'default': 0.015},
-            {'name': 'volume_spike_factor', 'type': float, 'min': 1.3, 'max': 1.8, 'step': 0.1, 'default': 1.5},
-            {'name': 'stop_loss_atr_multiplier', 'type': float, 'min': 1.5, 'max': 2.5, 'step': 0.2, 'default': 2.0},
-            {'name': 'take_profit_atr_multiplier', 'type': float, 'min': 2.5, 'max': 3.5, 'step': 0.2, 'default': 3.0},
-        ]
