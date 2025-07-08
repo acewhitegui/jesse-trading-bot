@@ -120,7 +120,7 @@ class YuanbaoSMABollingStrategy(Strategy):
 
         volume_spike = self.volume[-1] > self.volume_ema[-1] * self.hp['volume_spike_factor']
 
-        return sum([above_sma, adx_rising, hourly_trend_up, volume_spike]) >= 3
+        return sum([above_sma, adx_rising, hourly_trend_up, volume_spike]) >= 2
 
     def is_strong_downtrend(self):
         if len(self.candles) < 40:
@@ -132,7 +132,7 @@ class YuanbaoSMABollingStrategy(Strategy):
 
         volume_spike = self.volume[-1] > self.volume_ema[-1] * self.hp['volume_spike_factor']
 
-        return sum([below_sma, adx_rising, hourly_trend_down, volume_spike]) >= 3
+        return sum([below_sma, adx_rising, hourly_trend_down, volume_spike]) >= 2
 
     # ------------------------------
     # Trading Signals

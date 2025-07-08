@@ -245,4 +245,4 @@ class SMABollingStrategy(Strategy):
         ]
 
     def dna(self) -> str:
-        return "eyJhZHhfcGVyaW9kIjogMTMsICJhZHhfdGhyZXNob2xkIjogMjQsICJiYl9wZXJpb2QiOiAxMCwgImJiX3dpZHRoX3RocmVzaG9sZCI6IDAuMDM3NjcyMjY3OTE1MzY0MjksICJyc2lfb3ZlcmJvdWdodCI6IDc5LCAicnNpX292ZXJzb2xkIjogMjYsICJyc2lfcGVyaW9kIjogMTQsICJyc2lfc21hX3BlcmlvZCI6IDE1LCAic21hX3RyZW5kX3BlcmlvZCI6IDI1fQ=="
+        return "eyJhZHhfcGVyaW9kIjogOCwgImFkeF90aHJlc2hvbGQiOiAyOCwgImJiX3BlcmlvZCI6IDM3LCAiYmJfd2lkdGhfdGhyZXNob2xkIjogMC4wMzQsICJyc2lfcGVyaW9kIjogMjIsICJyc2lfc21hX3BlcmlvZCI6IDgsICJzbWFfdHJlbmRfcGVyaW9kIjogMjV9"
