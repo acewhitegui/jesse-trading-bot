@@ -226,13 +226,15 @@ class YuanbaoSMABollingStrategy(Strategy):
                 self.take_profit = take_profit_price
 
         elif self.position.is_short:
-            if len(self.candles) >= 20:
-                recent_atr = ta.atr(self.candles[-20:], period=self.atr_period, sequential=False)[-1]
-                stop_loss_price = self.entry_price + self.stop_loss_atr_multiplier * recent_atr
-                take_profit_price = self.entry_price - self.take_profit_atr_multiplier * recent_atr
+            if len(self.candles) < 20:
+                return
 
-                self.stop_loss = stop_loss_price
-                self.take_profit = take_profit_price
+            recent_atr = ta.atr(self.candles[-20:], period=self.atr_period, sequential=False)[-1]
+            stop_loss_price = self.entry_price + self.stop_loss_atr_multiplier * recent_atr
+            take_profit_price = self.entry_price - self.take_profit_atr_multiplier * recent_atr
+
+            self.stop_loss = stop_loss_price
+            self.take_profit = take_profit_price
 
     # ------------------------------
     # Other Callbacks
