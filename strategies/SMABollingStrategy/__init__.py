@@ -231,19 +231,20 @@ class SMABollingStrategy(Strategy):
         """Strategy end statistics"""
         pass
 
-    def hyperparameters(self):
-        """
-        Returns a dict of hyperparameters for optimization.
-        Tune these ranges for optimal results.
-        """
-        return {
-            'rsi_period': (8, 20, 1),  # int: min, max, step
-            'rsi_sma_period': (8, 24, 1),  # int: min, max, step
-            'bb_period': (10, 40, 1),  # int: min, max, step
-            'adx_period': (8, 24, 1),  # int: min, max, step
-            'adx_threshold': (10, 40, 1),  # int: min, max, step
-            'bb_width_threshold': (0.005, 0.05, 0.001),  # float: min, max, step
-            'rsi_oversold': (20, 40, 1),  # int: min, max, step
-            'rsi_overbought': (60, 80, 1),  # int: min, max, step
-            'sma_trend_period': (8, 30, 1),  # int: min, max, step
-        }
+
+def hyperparameters(self):
+    """
+    Returns a list of dicts describing hyperparameters for optimization.
+    Each dict contains 'name', 'type', 'min', 'max', and 'default' keys.
+    """
+    return [
+        {'name': 'rsi_period', 'type': int, 'min': 8, 'max': 20, 'default': 14},
+        {'name': 'rsi_sma_period', 'type': int, 'min': 8, 'max': 24, 'default': 14},
+        {'name': 'bb_period', 'type': int, 'min': 10, 'max': 40, 'default': 20},
+        {'name': 'adx_period', 'type': int, 'min': 8, 'max': 24, 'default': 14},
+        {'name': 'adx_threshold', 'type': int, 'min': 10, 'max': 40, 'default': 25},
+        {'name': 'bb_width_threshold', 'type': float, 'min': 0.005, 'max': 0.05, 'default': 0.02},
+        {'name': 'rsi_oversold', 'type': int, 'min': 20, 'max': 40, 'default': 30},
+        {'name': 'rsi_overbought', 'type': int, 'min': 60, 'max': 80, 'default': 70},
+        {'name': 'sma_trend_period', 'type': int, 'min': 8, 'max': 30, 'default': 20},
+    ]
