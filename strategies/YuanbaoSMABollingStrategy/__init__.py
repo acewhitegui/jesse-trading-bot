@@ -82,8 +82,13 @@ class YuanbaoSMABollingStrategy(Strategy):
         return ta.atr(self.candles, sequential=True)  # default period
 
     @property
-    def close(self):
+    def close_prices(self):
         return self.candles[:, 2].astype(float)  # column 2 is close price
+
+    @property
+    def current_close(self):
+        """Get the current close price as a scalar"""
+        return float(self.candles[-1, 2])
 
     @property
     def volume(self):
@@ -114,9 +119,10 @@ class YuanbaoSMABollingStrategy(Strategy):
         if len(self.candles) < 40:
             return False
 
-        above_sma = self.close[-1] > self.sma_trend[-1]
+        current_close = self.current_close
+        above_sma = current_close > self.sma_trend[-1]
         adx_rising = self.adx[-1] > self.hp['adx_threshold'] and self.adx[-1] > self.adx[-2]
-        hourly_trend_up = self.hourly_sma is not None and self.close[-1] > self.hourly_sma
+        hourly_trend_up = self.hourly_sma is not None and current_close > self.hourly_sma
 
         volume_spike = self.volume[-1] > self.volume_ema[-1] * self.hp['volume_spike_factor']
 
@@ -126,9 +132,10 @@ class YuanbaoSMABollingStrategy(Strategy):
         if len(self.candles) < 40:
             return False
 
-        below_sma = self.close[-1] < self.sma_trend[-1]
+        current_close = self.current_close
+        below_sma = current_close < self.sma_trend[-1]
         adx_rising = self.adx[-1] > self.hp['adx_threshold'] and self.adx[-1] > self.adx[-2]
-        hourly_trend_down = self.hourly_sma is not None and self.close[-1] < self.hourly_sma
+        hourly_trend_down = self.hourly_sma is not None and current_close < self.hourly_sma
 
         volume_spike = self.volume[-1] > self.volume_ema[-1] * self.hp['volume_spike_factor']
 
@@ -139,13 +146,14 @@ class YuanbaoSMABollingStrategy(Strategy):
     # ------------------------------
     def should_long(self) -> bool:
         if (len(self.rsi) < 2 or len(self.rsi_sma) < 2 or
-                len(self.bb_middle) < 1 or len(self.close) < 1):
+                len(self.bb_middle) < 1 or len(self.candles) < 1):
             return False
 
         if self.is_sideways_market():
             return False
 
-        price_below_mid = self.close[-1] < self.bb_middle[-1]
+        current_close = self.current_close
+        price_below_mid = current_close < self.bb_middle[-1]
         rsi_cross_above = self.rsi[-1] > self.rsi_sma[-1] and self.rsi[-2] <= self.rsi_sma[-2]
         strong_uptrend = self.is_strong_uptrend()
 
@@ -153,13 +161,14 @@ class YuanbaoSMABollingStrategy(Strategy):
 
     def should_short(self) -> bool:
         if (len(self.rsi) < 2 or len(self.rsi_sma) < 2 or
-                len(self.bb_upper) < 1 or len(self.close) < 1):
+                len(self.bb_upper) < 1 or len(self.candles) < 1):
             return False
 
         if self.is_sideways_market():
             return False
 
-        price_above_upper = self.close[-1] > self.bb_upper[-1]
+        current_close = self.current_close
+        price_above_upper = current_close > self.bb_upper[-1]
         rsi_cross_below = self.rsi[-1] < self.rsi_sma[-1] and self.rsi[-2] >= self.rsi_sma[-2]
         strong_downtrend = self.is_strong_downtrend()
 
@@ -173,7 +182,7 @@ class YuanbaoSMABollingStrategy(Strategy):
         if balance < 10:
             return 0
 
-        current_price = self.close[-1]
+        current_price = self.current_close
 
         if len(self.atr) > 0:
             atr_value = self.atr[-1]
@@ -193,11 +202,11 @@ class YuanbaoSMABollingStrategy(Strategy):
     # ------------------------------
     def go_long(self):
         qty = self.calculate_position_size()
-        self.buy = qty, self.close[-1]
+        self.buy = qty, self.current_close
 
     def go_short(self):
         qty = self.calculate_position_size()
-        self.sell = qty, self.close[-1]
+        self.sell = qty, self.current_close
 
     # ------------------------------
     # Adaptive Stop Loss & Take Profit
