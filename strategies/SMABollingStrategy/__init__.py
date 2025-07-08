@@ -231,20 +231,19 @@ class SMABollingStrategy(Strategy):
         """Strategy end statistics"""
         pass
 
-
-def hyperparameters(self):
-    """
-    Returns a list of dicts describing hyperparameters for optimization.
-    Each dict contains 'name', 'type', 'min', 'max', and 'default' keys.
-    """
-    return [
-        {'name': 'rsi_period', 'type': int, 'min': 8, 'max': 20, 'default': 14},
-        {'name': 'rsi_sma_period', 'type': int, 'min': 8, 'max': 24, 'default': 14},
-        {'name': 'bb_period', 'type': int, 'min': 10, 'max': 40, 'default': 20},
-        {'name': 'adx_period', 'type': int, 'min': 8, 'max': 24, 'default': 14},
-        {'name': 'adx_threshold', 'type': int, 'min': 10, 'max': 40, 'default': 25},
-        {'name': 'bb_width_threshold', 'type': float, 'min': 0.005, 'max': 0.05, 'default': 0.02},
-        {'name': 'rsi_oversold', 'type': int, 'min': 20, 'max': 40, 'default': 30},
-        {'name': 'rsi_overbought', 'type': int, 'min': 60, 'max': 80, 'default': 70},
-        {'name': 'sma_trend_period', 'type': int, 'min': 8, 'max': 30, 'default': 20},
-    ]
+    def hyperparameters(self):
+        """
+        Returns a list of dicts describing hyperparameters for optimization.
+        Each dict contains 'name', 'type', 'min', 'max', and 'default' keys.
+        """
+        return [
+            {'name': 'rsi_period', 'type': int, 'min': 8, 'max': 20, 'default': 14},
+            {'name': 'rsi_sma_period', 'type': int, 'min': 8, 'max': 24, 'default': 14},
+            {'name': 'bb_period', 'type': int, 'min': 10, 'max': 40, 'default': 20},
+            {'name': 'adx_period', 'type': int, 'min': 8, 'max': 24, 'default': 14},
+            {'name': 'adx_threshold', 'type': int, 'min': 10, 'max': 40, 'default': 25},
+            {'name': 'bb_width_threshold', 'type': float, 'min': 0.005, 'max': 0.05, 'default': 0.02},
+            {'name': 'rsi_oversold', 'type': int, 'min': 20, 'max': 40, 'default': 30},
+            {'name': 'rsi_overbought', 'type': int, 'min': 60, 'max': 80, 'default': 70},
+            {'name': 'sma_trend_period', 'type': int, 'min': 8, 'max': 30, 'default': 20},
+        ]
