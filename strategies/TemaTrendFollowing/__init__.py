@@ -131,3 +131,10 @@ class TemaTrendFollowing(Strategy):
             {'name': 'atr_tp_multiplier', 'type': float, 'min': 1.5, 'max': 5.0, 'step': 0.5, 'default': 3.0},
             {'name': 'risk_percentage', 'type': float, 'min': 1.0, 'max': 5.0, 'step': 0.5, 'default': 3.0},
         ]
+
+    def dna(self) -> str:
+        symbol = self.symbol
+        dna_dict = {
+            "BTC-USDT": ''
+        }
+        return dna_dict.get(symbol)
