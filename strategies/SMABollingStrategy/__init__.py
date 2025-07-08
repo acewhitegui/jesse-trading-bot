@@ -22,8 +22,6 @@ class SMABollingStrategy(Strategy):
         self.rsi_period = 12
         self.rsi_sma_period = 14
         self.bb_period = 24
-        self.rsi_oversold = 28
-        self.rsi_overbought = 68
         self.adx_period = 12
         self.adx_threshold = 22
         self.bb_width_threshold = 0.01
@@ -237,14 +235,12 @@ class SMABollingStrategy(Strategy):
         Each dict contains 'name', 'type', 'min', 'max', and 'default' keys.
         """
         return [
-            {'name': 'rsi_period', 'type': int, 'min': 8, 'max': 20, 'default': 14},
+            {'name': 'rsi_period', 'type': int, 'min': 8, 'max': 24, 'default': 14},
             {'name': 'rsi_sma_period', 'type': int, 'min': 8, 'max': 24, 'default': 14},
             {'name': 'bb_period', 'type': int, 'min': 10, 'max': 40, 'default': 20},
             {'name': 'adx_period', 'type': int, 'min': 8, 'max': 24, 'default': 14},
             {'name': 'adx_threshold', 'type': int, 'min': 10, 'max': 40, 'default': 25},
-            {'name': 'bb_width_threshold', 'type': float, 'min': 0.005, 'max': 0.05, 'default': 0.02},
-            {'name': 'rsi_oversold', 'type': int, 'min': 20, 'max': 40, 'default': 30},
-            {'name': 'rsi_overbought', 'type': int, 'min': 60, 'max': 80, 'default': 70},
+            {'name': 'bb_width_threshold', 'type': float, 'min': 0.005, 'max': 0.05, "step": 0.001, 'default': 0.02},
             {'name': 'sma_trend_period', 'type': int, 'min': 8, 'max': 30, 'default': 20},
         ]
 
