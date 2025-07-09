@@ -199,7 +199,7 @@ class SMABollingStrategy(Strategy):
         if qty <= 0:
             return
         # Place order with stop loss
-        self.buy(qty, current_price, stop_loss=stop_loss_price)
+        self.buy = qty, current_price
 
     def go_short(self):
         """Open short position - not used in spot trading"""
