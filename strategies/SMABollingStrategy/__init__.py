@@ -249,6 +249,9 @@ class SMABollingStrategy(Strategy):
     def dna(self) -> str:
         symbol = self.symbol
         dna_dict = {
-            "BTC-USDT": "eyJhZHhfcGVyaW9kIjogOSwgImFkeF90aHJlc2hvbGQiOiAzMCwgImJiX3BlcmlvZCI6IDMyLCAiYmJfd2lkdGhfdGhyZXNob2xkIjogMC4wNDcsICJyc2lfcGVyaW9kIjogMjEsICJyc2lfc21hX3BlcmlvZCI6IDE4LCAic21hX3RyZW5kX3BlcmlvZCI6IDEyfQ=="
+            "BTC-USDT": "eyJhZHhfcGVyaW9kIjogOSwgImFkeF90aHJlc2hvbGQiOiAzMCwgImJiX3BlcmlvZCI6IDMyLCAiYmJfd2lkdGhfdGhy"
+                        "ZXNob2xkIjogMC4wNDcsICJyc2lfcGVyaW9kIjogMjEsICJyc2lfc21hX3BlcmlvZCI6IDE4LCAic21hX3RyZW5kX3BlcmlvZCI6IDEyfQ==",
+            "XRP-USDT": "eyJhZHhfcGVyaW9kIjogMjAsICJhZHhfdGhyZXNob2xkIjogMTcsICJiYl9wZXJpb2QiOiAyOCwgImJiX3dpZHRoX3RocmVz"
+                        "aG9sZCI6IDAuMDIyMDAwMDAwMDAwMDAwMDAyLCAicnNpX3BlcmlvZCI6IDE4LCAicnNpX3NtYV9wZXJpb2QiOiAxNCwgInNtYV90cmVuZF9wZXJpb2QiOiAxN30="
         }
         return dna_dict.get(symbol, "")
