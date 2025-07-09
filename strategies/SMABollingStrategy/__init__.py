@@ -250,7 +250,7 @@ class SMABollingStrategy(Strategy):
                         "ZXNob2xkIjogMC4wNDcsICJyc2lfcGVyaW9kIjogMjEsICJyc2lfc21hX3BlcmlvZCI6IDE4LCAic21hX3RyZW5kX3BlcmlvZCI6IDEyfQ==",
             "ETH-USDT": "eyJhZHhfcGVyaW9kIjogMTAsICJhZHhfdGhyZXNob2xkIjogMTAsICJiYl9wZXJpb2QiOiAxNSwgImJiX3dpZHRoX3RocmVz"
                         "aG9sZCI6IDAuMDQxLCAicnNpX3BlcmlvZCI6IDE2LCAicnNpX3NtYV9wZXJpb2QiOiAxNCwgInNtYV90cmVuZF9wZXJpb2QiOiAyMn0=",
-            "XRP-USDT": "eyJhZHhfcGVyaW9kIjogMjAsICJhZHhfdGhyZXNob2xkIjogMTcsICJiYl9wZXJpb2QiOiAyOCwgImJiX3dpZHRoX3RocmVz"
-                        "aG9sZCI6IDAuMDIyMDAwMDAwMDAwMDAwMDAyLCAicnNpX3BlcmlvZCI6IDE4LCAicnNpX3NtYV9wZXJpb2QiOiAxNCwgInNtYV90cmVuZF9wZXJpb2QiOiAxN30="
+            "XRP-USDT": "eyJhZHhfcGVyaW9kIjogMTcsICJhZHhfdGhyZXNob2xkIjogMzUsICJiYl9wZXJpb2QiOiAxOCwgImJiX3dpZHRoX3RocmV"
+                        "zaG9sZCI6IDAuMDA4LCAicnNpX3BlcmlvZCI6IDgsICJyc2lfc21hX3BlcmlvZCI6IDEzLCAic21hX3RyZW5kX3BlcmlvZCI6IDI1fQ=="
         }
         return dna_dict.get(symbol, "")
