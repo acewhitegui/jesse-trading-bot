@@ -131,3 +131,11 @@ class TemaTrendFollowing(Strategy):
             {'name': 'atr_tp_multiplier', 'type': float, 'min': 1.5, 'max': 5.0, 'step': 0.5, 'default': 3.0},
             {'name': 'risk_percentage', 'type': float, 'min': 1.0, 'max': 5.0, 'step': 0.5, 'default': 3.0},
         ]
+
+    def dna(self) -> str:
+        symbol = self.symbol
+        dna_dict = {
+            "BTC-USDT": "",
+            "ETH-USDT": "eyJhZHhfcGVyaW9kIjogMjIsICJhZHhfdGhyZXNob2xkIjogNDYsICJhdHJfZW50cnlfbXVsdGlwbGllciI6IDAuNiwgImF0cl9wZXJpb2QiOiAyMiwgImF0cl9zdG9wX211bHRpcGxpZXIiOiA2LjAsICJhdHJfdHBfbXVsdGlwbGllciI6IDQuMCwgImNtb19wZXJpb2QiOiAxMCwgImNtb190aHJlc2hvbGQiOiA0MCwgInJpc2tfcGVyY2VudGFnZSI6IDMuNSwgInRlbWFfNGhfbG9uZ19wZXJpb2QiOiA4NCwgInRlbWFfNGhfc2hvcnRfcGVyaW9kIjogMzAsICJ0ZW1hX2xvbmdfcGVyaW9kIjogOTksICJ0ZW1hX3Nob3J0X3BlcmlvZCI6IDV9"
+        }
+        return dna_dict.get(symbol, "")
