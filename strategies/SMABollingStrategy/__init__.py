@@ -86,6 +86,10 @@ class SMABollingStrategy(Strategy):
         is_sideways = (current_adx < self.adx_threshold or
                        current_bb_width < self.bb_width_threshold)
 
+        self.log(
+            f"side ways market checking, is sideways: {is_sideways}, "
+            f"current_adx: {current_adx} with adx_threshold: {self.adx_threshold}, "
+            f"current_bb_width: {current_bb_width} with bb_width_threshold: {self.bb_width_threshold}")
         return is_sideways
 
     def is_uptrend(self):
@@ -144,7 +148,7 @@ class SMABollingStrategy(Strategy):
         """Long conditions"""
         # Check if market is sideways
         if self.is_sideways_market():
-            self.log(f"side way market trigger, time: {self.time}, candle date: {self.time}")
+            self.log(f"side way market trigger, time: {self.time}")
             return False
 
         current_price = self.candles[-1][4]  # close price
