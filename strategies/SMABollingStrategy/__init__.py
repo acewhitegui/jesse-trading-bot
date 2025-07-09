@@ -5,20 +5,20 @@ from jesse.strategies import Strategy
 
 class SMABollingStrategy(Strategy):
     """
-    策略概述：
-    1. 定义超买和超卖区间，超卖30，超买70
-    2. 利用rsi计算rsi based SMA，RSI长度为14
-    3. 计算bolling上下轨
+    Strategy Overview:
+    1. Define overbought and oversold zones, oversold 30, overbought 70
+    2. Use RSI to calculate RSI based SMA, RSI length is 14
+    3. Calculate Bollinger upper and lower bands
 
-    出入场时机：
-    1. 当价格突破bolling下轨，且rsi based ma上穿rsi或者在上方，做多
-    2. 当价格突破bolling上轨，且rsi based ma下穿rsi或者在rsi下方，平多
-    3. 横盘不交易
+    Entry and Exit Timing:
+    1. When price breaks below Bollinger lower band and RSI based MA crosses above RSI or is above it, go long
+    2. When price breaks above Bollinger upper band and RSI based MA crosses below RSI or is below RSI, close long
+    3. No trading in sideways market
     """
 
     def __init__(self):
         super().__init__()
-        # 策略参数
+        # Strategy parameters
         self.rsi_period = 12
         self.rsi_sma_period = 14
         self.bb_period = 24
@@ -32,71 +32,71 @@ class SMABollingStrategy(Strategy):
 
     @property
     def rsi(self):
-        """RSI指标"""
+        """RSI indicator"""
         return ta.rsi(self.candles, period=self.rsi_period, sequential=True)
 
     @property
     def rsi_sma(self):
-        """RSI基于的SMA"""
+        """RSI based SMA"""
         return ta.sma(self.rsi, period=self.rsi_sma_period, sequential=True)
 
     @property
     def bollinger_bands(self):
-        """布林带"""
+        """Bollinger Bands"""
         return ta.bollinger_bands(self.candles, period=self.bb_period, sequential=True)
 
     @property
     def bb_upper(self):
-        """布林带上轨"""
+        """Bollinger upper band"""
         return self.bollinger_bands.upperband
 
     @property
     def bb_lower(self):
-        """布林带下轨"""
+        """Bollinger lower band"""
         return self.bollinger_bands.lowerband
 
     @property
     def bb_middle(self):
-        """布林带中轨"""
+        """Bollinger middle band"""
         return self.bollinger_bands.middleband
 
     @property
     def adx(self):
-        """ADX指标"""
+        """ADX indicator"""
         return ta.adx(self.candles, period=self.adx_period, sequential=True)
 
     @property
     def bb_width(self):
-        """布林带宽度"""
+        """Bollinger band width"""
         return (self.bb_upper - self.bb_lower) / self.bb_middle
 
     @property
     def sma_trend(self):
-        """趋势判断用的SMA"""
+        """SMA for trend determination"""
         return ta.sma(self.candles, period=self.sma_trend_period, sequential=True)
 
     def is_sideways_market(self):
-        """判断是否为横盘市场"""
-        # 检查数据是否足够
+        """Check if market is sideways"""
+        # Check if data is sufficient
         if len(self.adx) < 2 or len(self.bb_width) < 2:
-            return True  # 数据不足时，暂时认为是横盘，避免交易
+            return True  # When data is insufficient, assume sideways to avoid trading
 
         current_adx = self.adx[-1]
         current_bb_width = self.bb_width[-1]
 
-        # 横盘条件：ADX较低（趋势弱）或布林带宽度较小（波动小）
+        # Sideways conditions: Low ADX (weak trend) or small Bollinger band width (low volatility)
         is_sideways = (current_adx < self.adx_threshold or
                        current_bb_width < self.bb_width_threshold)
 
         self.log(
-            f"{self.symbol},side ways market checking, is sideways: {is_sideways}, "
+            f"{self.symbol}, sideways market checking, is sideways: {is_sideways}, "
             f"current_adx: {current_adx} with adx_threshold: {self.adx_threshold}, "
             f"current_bb_width: {current_bb_width} with bb_width_threshold: {self.bb_width_threshold}")
         return is_sideways
 
     def is_uptrend(self):
-        """判断是否为上行趋势"""
-        # 检查数据是否足够
+        """Check if market is in uptrend"""
+        # Check if data is sufficient
         if (len(self.candles) < 2 or len(self.adx) < 2 or
                 len(self.sma_trend) < 2 or len(self.bb_middle) < 2):
             return False
@@ -107,24 +107,24 @@ class SMABollingStrategy(Strategy):
         current_sma = self.sma_trend[-1]
         bb_mid = self.bb_middle[-1]
 
-        # 上行趋势条件：
-        # 1. ADX显示趋势强度足够（大于阈值）
-        # 2. 价格在SMA上方且SMA呈上升趋势
-        # 3. 价格高于布林带中轨
-        # 4. 价格上涨
+        # Uptrend conditions:
+        # 1. ADX shows sufficient trend strength (above threshold)
+        # 2. Price is above SMA and SMA is trending upward
+        # 3. Price is above Bollinger middle band
+        # 4. Price is rising
         uptrend_conditions = [
-            current_adx >= self.adx_threshold,  # 趋势强度足够
-            current_price > current_sma,  # 价格在趋势线上方
-            current_price > bb_mid,  # 价格在布林带中轨上方
-            current_price > previous_price,  # 价格上涨
+            current_adx >= self.adx_threshold,  # Sufficient trend strength
+            current_price > current_sma,  # Price above trend line
+            current_price > bb_mid,  # Price above Bollinger middle band
+            current_price > previous_price,  # Price rising
         ]
 
-        # 至少满足2个条件才认为是上行趋势
+        # At least 2 conditions must be met to consider uptrend
         return sum(uptrend_conditions) >= 2
 
     def is_downtrend(self):
-        """判断是否为下行趋势"""
-        # 检查数据是否足够
+        """Check if market is in downtrend"""
+        # Check if data is sufficient
         if (len(self.candles) < 2 or len(self.adx) < 2 or
                 len(self.sma_trend) < 2 or len(self.bb_middle) < 2):
             return False
@@ -135,29 +135,29 @@ class SMABollingStrategy(Strategy):
         current_sma = self.sma_trend[-1]
         bb_mid = self.bb_middle[-1]
 
-        # 下行趋势条件：
-        # 1. ADX显示趋势强度足够（大于阈值）
-        # 2. 价格在SMA下方且SMA呈下降趋势
-        # 3. 价格低于布林带中轨
-        # 4. 价格下跌
+        # Downtrend conditions:
+        # 1. ADX shows sufficient trend strength (above threshold)
+        # 2. Price is below SMA and SMA is trending downward
+        # 3. Price is below Bollinger middle band
+        # 4. Price is falling
         downtrend_conditions = [
-            current_adx >= self.adx_threshold,  # 趋势强度足够
-            current_price < current_sma,  # 价格在趋势线下方
-            current_price < bb_mid,  # 价格在布林带中轨下方
-            current_price < previous_price,  # 价格下跌
+            current_adx >= self.adx_threshold,  # Sufficient trend strength
+            current_price < current_sma,  # Price below trend line
+            current_price < bb_mid,  # Price below Bollinger middle band
+            current_price < previous_price,  # Price falling
         ]
 
-        # 至少满足2个条件才认为是下行趋势
+        # At least 2 conditions must be met to consider downtrend
         return sum(downtrend_conditions) >= 2
 
     def should_long(self) -> bool:
-        """做多条件"""
-        # 检查数据是否足够
+        """Long entry conditions"""
+        # Check if data is sufficient
         if (len(self.rsi) < 2 or len(self.rsi_sma) < 2 or
                 len(self.bb_lower) < 2 or len(self.bb_middle) < 2):
             return False
 
-        # 检查是否为横盘市场
+        # Check if market is sideways
         if self.is_sideways_market():
             return False
 
@@ -167,34 +167,34 @@ class SMABollingStrategy(Strategy):
         bb_lower = self.bb_lower[-1]
         bb_middle = self.bb_middle[-1]
 
-        # 做多信号：价格突破布林带下轨 且 RSI SMA上穿RSI或在RSI上方
+        # Long signal: Price breaks below Bollinger lower band and RSI SMA crosses above RSI or is above RSI
         if self.is_uptrend():
-            # 上行趋势中，使用布林带中轨作为支撑
+            # In uptrend, use Bollinger middle band as support
             long_signal = (current_price < bb_middle and
                            current_rsi_sma > current_rsi)
         else:
-            # 非上行趋势，使用布林带下轨
+            # In non-uptrend, use Bollinger lower band
             long_signal = (current_price < bb_lower and
                            current_rsi_sma > current_rsi and current_rsi_sma > self.rsi_oversold)
 
         return long_signal
 
     def should_short(self) -> bool:
-        """做空条件 - 现货交易不做空"""
+        """Short entry conditions - No shorting in spot trading"""
         return False
 
     def should_cancel_entry(self) -> bool:
-        """取消入场条件"""
+        """Cancel entry conditions"""
         return False
 
     def go_long(self):
-        """开多仓"""
-        # 使用25%的可用资金
+        """Open long position"""
+        # Use 25% of available funds
         cash_pct = 0.25
         available_balance = self.available_margin
         trade_amount = available_balance * cash_pct
 
-        # 最小交易金额检查
+        # Minimum trade amount check
         min_trade_amount = 100
         if trade_amount < min_trade_amount:
             return
@@ -202,44 +202,44 @@ class SMABollingStrategy(Strategy):
         current_price = self.candles[-1][4]
         qty = utils.size_to_qty(trade_amount, current_price, precision=6)
 
-        # 记录开仓信息
-        self.log(f'开多仓: 价格={current_price:.2f}, 数量={qty:.6f}, '
+        # Log opening position info
+        self.log(f'Open long: Price={current_price:.2f}, Qty={qty:.6f}, '
                  f'RSI={self.rsi[-1]:.2f}, RSI_SMA={self.rsi_sma[-1]:.2f}, '
-                 f'BB_下轨={self.bb_lower[-1]:.2f}, ADX={self.adx[-1]:.2f}')
+                 f'BB_Lower={self.bb_lower[-1]:.2f}, ADX={self.adx[-1]:.2f}')
 
         self.buy = qty, current_price
 
     def go_short(self):
-        """开空仓 - 现货交易不使用"""
+        """Open short position - Not used in spot trading"""
         pass
 
     def update_position(self):
-        """更新持仓逻辑"""
-        # 如果持有多仓，检查平仓条件
-        if self.position.qty > 0:  # 有多仓
+        """Update position logic"""
+        # If holding long position, check closing conditions
+        if self.position.qty > 0:  # Has long position
             current_price = self.candles[-1][4]
             current_rsi = self.rsi[-1]
             current_rsi_sma = self.rsi_sma[-1]
             bb_middle = self.bb_middle[-1]
 
-            # 平多信号：价格突破布林带中轨 且 RSI SMA下穿RSI或在RSI下方
+            # Close long signal: Price breaks above Bollinger middle band and RSI SMA crosses below RSI or is below RSI
             close_long_signal = (current_price > bb_middle and
                                  current_rsi_sma < current_rsi)
 
             if close_long_signal:
-                self.log(f'平多仓: 价格={current_price:.2f}, '
+                self.log(f'Close long: Price={current_price:.2f}, '
                          f'RSI={current_rsi:.2f}, RSI_SMA={current_rsi_sma:.2f}, '
-                         f'BB_中轨={bb_middle:.2f}, 收益率={self.position.pnl_percentage:.2f}%')
+                         f'BB_Middle={bb_middle:.2f}, Return={self.position.pnl_percentage:.2f}%')
                 self.liquidate()
 
     def on_open_position(self, order):
-        """开仓时的回调"""
+        """Callback when opening position"""
         pass
 
     def on_close_position(self, order):
-        """平仓时的回调"""
+        """Callback when closing position"""
         pass
 
     def terminate(self):
-        """策略结束时的统计"""
+        """Statistics when strategy ends"""
         pass
