@@ -187,7 +187,7 @@ class SMABollingStrategy(Strategy):
         available_balance = self.available_margin
         trade_amount = available_balance * cash_pct
         current_price = self.candles[-1][4]
-        stop_loss_price = current_price - (self.atr * 2)  # Stop loss 2 ATR below entry
+        stop_loss_price = current_price - (self.atr * 4)  # Stop loss 4 ATR below entry
         # Minimum trade amount
         min_trade_amount = 25
         if trade_amount < min_trade_amount:
@@ -227,10 +227,10 @@ class SMABollingStrategy(Strategy):
     def on_open_position(self, order) -> None:
         if self.is_long:
             # Set stop loss and take profit for long position
-            self.stop_loss = self.position.qty, self.position.entry_price - (self.atr * 2)
+            self.stop_loss = self.position.qty, self.position.entry_price - (self.atr * 4)
         elif self.is_short:
             # Set stop loss and take profit for short position
-            self.stop_loss = self.position.qty, self.position.entry_price + (self.atr * 2)
+            self.stop_loss = self.position.qty, self.position.entry_price + (self.atr * 4)
 
     def on_close_position(self, order):
         """Callback when a position is closed"""
