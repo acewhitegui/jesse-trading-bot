@@ -87,7 +87,7 @@ class SMABollingStrategy(Strategy):
                        current_bb_width < self.bb_width_threshold)
 
         self.log(
-            f"side ways market checking, is sideways: {is_sideways}, "
+            f"{self.symbol},side ways market checking, is sideways: {is_sideways}, "
             f"current_adx: {current_adx} with adx_threshold: {self.adx_threshold}, "
             f"current_bb_width: {current_bb_width} with bb_width_threshold: {self.bb_width_threshold}")
         return is_sideways
