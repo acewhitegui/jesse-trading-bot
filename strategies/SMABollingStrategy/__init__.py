@@ -182,23 +182,28 @@ class SMABollingStrategy(Strategy):
 
     def go_long(self):
         """Open long position"""
-        # Use 50% of available balance
-        cash_pct = 0.50
-        available_balance = self.available_margin
-        trade_amount = available_balance * cash_pct
         current_price = self.candles[-1][4]
         stop_loss_price = current_price - (self.atr * 4)  # Stop loss 4 ATR below entry
-        # Minimum trade amount
+        
+        # Calculate position size based on risk management
+        # Risk 3% of available margin
+        risk_qty = utils.risk_to_qty(self.available_margin, 3, current_price, stop_loss_price, fee_rate=self.fee_rate)
+        
+        # Maximum position size is 30% of available margin
+        max_qty = utils.size_to_qty(0.30 * self.available_margin, current_price, precision=6)
+        
+        # Use the smaller of the two quantities
+        qty = min(risk_qty, max_qty)
+        
+        # Minimum trade amount check
         min_trade_amount = 25
-        if trade_amount < min_trade_amount:
+        if qty * current_price < min_trade_amount:
             return
 
-        risk_qty = utils.risk_to_qty(self.available_margin, 3, current_price, stop_loss_price, fee_rate=self.fee_rate)
-        max_qty = utils.size_to_qty(trade_amount, current_price, precision=6)
-        qty = min(risk_qty, max_qty)
         if qty <= 0:
             return
-        # Place order with stop loss
+            
+        # Place the order
         self.buy = qty, current_price
 
     def go_short(self):
@@ -225,12 +230,17 @@ class SMABollingStrategy(Strategy):
         return False
 
     def on_open_position(self, order) -> None:
+        """Set stop loss and take profit when position is opened"""
         if self.is_long:
-            # Set stop loss and take profit for long position
+            # Set stop loss 4 ATR below entry price
             self.stop_loss = self.position.qty, self.position.entry_price - (self.atr * 4)
+            # Set take profit 3 ATR above entry price
+            self.take_profit = self.position.qty, self.position.entry_price + (self.atr * 3)
         elif self.is_short:
-            # Set stop loss and take profit for short position
+            # Set stop loss 4 ATR above entry price
             self.stop_loss = self.position.qty, self.position.entry_price + (self.atr * 4)
+            # Set take profit 3 ATR below entry price
+            self.take_profit = self.position.qty, self.position.entry_price - (self.atr * 3)
 
     def on_close_position(self, order):
         """Callback when a position is closed"""
