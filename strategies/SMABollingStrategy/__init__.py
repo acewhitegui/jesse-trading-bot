@@ -182,20 +182,24 @@ class SMABollingStrategy(Strategy):
 
     def go_long(self):
         """Open long position"""
-        # Use 25% of available balance
+        # Use 50% of available balance
         cash_pct = 0.50
         available_balance = self.available_margin
         trade_amount = available_balance * cash_pct
-
+        current_price = self.candles[-1][4]
+        stop_loss_price = current_price - (self.atr * 2)  # Stop loss 2 ATR below entry
         # Minimum trade amount
         min_trade_amount = 25
         if trade_amount < min_trade_amount:
             return
 
-        current_price = self.candles[-1][4]
-        qty = utils.size_to_qty(trade_amount, current_price, precision=6)
-
-        self.buy = qty, current_price
+        risk_qty = utils.risk_to_qty(self.available_margin, 3, current_price, stop_loss_price, fee_rate=self.fee_rate)
+        max_qty = utils.size_to_qty(trade_amount, current_price, precision=6)
+        qty = min(risk_qty, max_qty)
+        if qty <= 0:
+            return
+        # Place order with stop loss
+        self.buy(qty, current_price, stop_loss=stop_loss_price)
 
     def go_short(self):
         """Open short position - not used in spot trading"""
