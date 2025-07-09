@@ -79,9 +79,6 @@ class SMABollingStrategy(Strategy):
     def is_sideways_market(self):
         """Determine if market is sideways"""
         # Check if data is sufficient
-        if len(self.adx) < 2 or len(self.bb_width) < 2:
-            return True  # If insufficient data, treat as sideways to avoid trading
-
         current_adx = self.adx[-1]
         current_bb_width = self.bb_width[-1]
 
@@ -94,10 +91,6 @@ class SMABollingStrategy(Strategy):
     def is_uptrend(self):
         """Determine if uptrend"""
         # Check if data is sufficient
-        if (len(self.candles) < 2 or len(self.adx) < 2 or
-                len(self.sma_trend) < 2 or len(self.bb_middle) < 2):
-            return False
-
         current_price = self.candles[-1][4]  # close price
         previous_price = self.candles[-2][4]
         current_adx = self.adx[-1]
@@ -149,11 +142,6 @@ class SMABollingStrategy(Strategy):
 
     def should_long(self) -> bool:
         """Long conditions"""
-        # Check if data is sufficient
-        if (len(self.rsi) < 2 or len(self.rsi_sma) < 2 or
-                len(self.bb_lower) < 2 or len(self.bb_middle) < 2):
-            return False
-
         # Check if market is sideways
         if self.is_sideways_market():
             self.log(f"side way market trigger, time: {self.time}, candle date: {self.time}")
