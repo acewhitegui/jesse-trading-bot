@@ -205,8 +205,8 @@ class SMABollingStrategy(Strategy):
     def update_position(self):
         """Update open position logic"""
         # If holding a long position, check exit condition
-        if self.position.pnl_percentage <= 0:
-            self.log(f"updating position trigger, position info: {self.position}")
+        self.log(f"updating position trigger, position info: {self.position.to_dict}")
+        if self.position.qty <= 0:
             return
 
         current_price = self.candles[-1][4]
