@@ -225,7 +225,12 @@ class SMABollingStrategy(Strategy):
         return False
 
     def on_open_position(self, order) -> None:
-        pass
+        if self.is_long:
+            # Set stop loss and take profit for long position
+            self.stop_loss = self.position.qty, self.position.entry_price - (self.atr * 2)
+        elif self.is_short:
+            # Set stop loss and take profit for short position
+            self.stop_loss = self.position.qty, self.position.entry_price + (self.atr * 2)
 
     def on_close_position(self, order):
         """Callback when a position is closed"""
