@@ -205,18 +205,26 @@ class SMABollingStrategy(Strategy):
     def update_position(self):
         """Update open position logic"""
         # If holding a long position, check exit condition
-        if self.position.pnl_percentage > 0:  # Has long position
-            current_price = self.candles[-1][4]
-            current_rsi = self.rsi[-1]
-            current_rsi_sma = self.rsi_sma[-1]
-            bb_middle = self.bb_middle[-1]
+        if self.position.pnl_percentage <= 0:
+            self.log(f"updating position trigger, position info: {self.position}")
+            return
 
-            # Exit signal: Price breaks above Bollinger middle band AND RSI SMA crosses below RSI or stays below
-            close_long_signal = (current_price > bb_middle and
-                                 current_rsi_sma < current_rsi)
+        current_price = self.candles[-1][4]
+        current_rsi = self.rsi[-1]
+        current_rsi_sma = self.rsi_sma[-1]
+        bb_middle = self.bb_middle[-1]
 
-            if close_long_signal:
-                self.liquidate()
+        # Exit signal: Price breaks above Bollinger middle band AND RSI SMA crosses below RSI or stays below
+        close_long_signal = (current_price > bb_middle and
+                             current_rsi_sma < current_rsi)
+
+        if not close_long_signal:
+            self.log(
+                f"Not received close long signal, current_price: {current_price} < bb_middle: {bb_middle}, "
+                f"current_rsi_sma: {current_rsi_sma} > current_rsi: {current_rsi}")
+            return
+
+        self.liquidate()
 
     def should_cancel_entry(self) -> bool:
         return False
