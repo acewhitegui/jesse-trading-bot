@@ -152,11 +152,6 @@ class SMABollingStrategy(Strategy):
 
     def should_long(self) -> bool:
         """Long entry conditions"""
-        # Check if data is sufficient
-        if (len(self.rsi) < 2 or len(self.rsi_sma) < 2 or
-                len(self.bb_lower) < 2 or len(self.bb_middle) < 2):
-            return False
-
         # Check if market is sideways
         if self.is_sideways_market():
             return False
@@ -172,10 +167,17 @@ class SMABollingStrategy(Strategy):
             # In uptrend, use Bollinger middle band as support
             long_signal = (current_price < bb_middle and
                            current_rsi_sma > current_rsi)
+            self.log(f"{self.symbol}, long: {long_signal}, uptrend: True, "
+                     f"price({current_price:.4f}) < bb_middle({bb_middle:.4f}): {current_price < bb_middle}, "
+                     f"rsi_sma({current_rsi_sma:.2f}) > rsi({current_rsi:.2f}): {current_rsi_sma > current_rsi}")
         else:
             # In non-uptrend, use Bollinger lower band
             long_signal = (current_price < bb_lower and
                            current_rsi_sma > current_rsi and current_rsi_sma > self.rsi_oversold)
+            self.log(f"{self.symbol}, long: {long_signal}, uptrend: False, "
+                     f"price({current_price:.4f}) < bb_lower({bb_lower:.4f}): {current_price < bb_lower}, "
+                     f"rsi_sma({current_rsi_sma:.2f}) > rsi({current_rsi:.2f}): {current_rsi_sma > current_rsi}, "
+                     f"rsi_sma({current_rsi_sma:.2f}) > oversold({self.rsi_oversold}): {current_rsi_sma > self.rsi_oversold}")
 
         return long_signal
 
@@ -185,7 +187,7 @@ class SMABollingStrategy(Strategy):
 
     def should_cancel_entry(self) -> bool:
         """Cancel entry conditions"""
-        return False
+        return True
 
     def go_long(self):
         """Open long position"""
@@ -215,6 +217,7 @@ class SMABollingStrategy(Strategy):
 
     def update_position(self):
         """Update position logic"""
+        self.log(f'{self.symbol} position updated, quantity: {self.position.qty}, position info: {self.position.to_dict}')
         # If holding long position, check closing conditions
         if self.position.qty > 0:  # Has long position
             current_price = self.candles[-1][4]
