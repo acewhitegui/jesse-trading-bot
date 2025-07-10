@@ -253,7 +253,6 @@ class SMABollingStrategy(Strategy):
             {'name': 'adx_threshold', 'type': int, 'min': 10, 'max': 40, 'default': 25},
             {'name': 'bb_width_threshold', 'type': float, 'min': 0.005, 'max': 0.05, 'default': 0.02, "step": 0.005},
             {'name': 'rsi_oversold', 'type': int, 'min': 20, 'max': 40, 'default': 30},
-            {'name': 'sma_trend_period', 'type': int, 'min': 8, 'max': 30, 'default': 20},
             {'name': 'stop_loss_factor', 'type': int, 'min': 2, 'max': 7, 'default': 4},
         ]
 
