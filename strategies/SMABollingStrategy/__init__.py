@@ -214,7 +214,8 @@ class SMABollingStrategy(Strategy):
                 # 下跌趋势，需要止损
                 close_long_signal = (current_price > bb_middle and
                                      current_rsi_sma < current_rsi)
-                self.stop_loss = self.position.qty, self.position.entry_price - (self.atr * self.stop_loss_factor)
+
+            self.stop_loss = self.position.qty, self.position.entry_price - (self.atr * self.stop_loss_factor)
 
             if close_long_signal:
                 self.log(f'Close long: Price={current_price:.2f}, '
@@ -224,7 +225,12 @@ class SMABollingStrategy(Strategy):
 
     def on_open_position(self, order):
         """Callback when opening position"""
-        pass
+        if self.is_long:
+            # Set stop loss and take profit for long position
+            self.stop_loss = self.position.qty, self.position.entry_price - (self.atr * self.stop_loss_factor)
+        elif self.is_short:
+            # Set stop loss and take profit for short position
+            self.stop_loss = self.position.qty, self.position.entry_price + (self.atr * self.stop_loss_factor)
 
     def on_close_position(self, order):
         """Callback when closing position"""
