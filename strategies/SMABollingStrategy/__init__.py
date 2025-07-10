@@ -171,12 +171,12 @@ class SMABollingStrategy(Strategy):
     def go_long(self):
         """Open long position"""
         # Use 25% of available funds
-        cash_pct = 0.25
+        cash_pct = 0.50
         available_balance = self.available_margin
         trade_amount = available_balance * cash_pct
 
         # Minimum trade amount check
-        min_trade_amount = 100
+        min_trade_amount = 25
         if trade_amount < min_trade_amount:
             return
 
