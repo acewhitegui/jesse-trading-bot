@@ -22,9 +22,7 @@ class SMABollingStrategy(Strategy):
         self.rsi_period = 12
         self.rsi_sma_period = 14
         self.bb_period = 24
-        self.bb_std = 2.0
         self.rsi_oversold = 28
-        self.rsi_overbought = 68
         self.adx_period = 12
         self.adx_threshold = 22
         self.bb_width_threshold = 0.01
@@ -173,7 +171,7 @@ class SMABollingStrategy(Strategy):
         else:
             # In non-uptrend, use Bollinger lower band
             long_signal = (current_price < bb_lower and
-                           current_rsi_sma > current_rsi and current_rsi_sma > self.rsi_oversold)
+                           current_rsi < current_rsi_sma < self.rsi_oversold)
             self.log(f"{self.symbol}, long: {long_signal}, uptrend: False, "
                      f"price({current_price:.4f}) < bb_lower({bb_lower:.4f}): {current_price < bb_lower}, "
                      f"rsi_sma({current_rsi_sma:.2f}) > rsi({current_rsi:.2f}): {current_rsi_sma > current_rsi}, "
@@ -217,7 +215,8 @@ class SMABollingStrategy(Strategy):
 
     def update_position(self):
         """Update position logic"""
-        self.log(f'{self.symbol} position updated, quantity: {self.position.qty}, position info: {self.position.to_dict}')
+        self.log(
+            f'{self.symbol} position updated, quantity: {self.position.qty}, position info: {self.position.to_dict}')
         # If holding long position, check closing conditions
         if self.position.qty > 0:  # Has long position
             current_price = self.candles[-1][4]
@@ -246,3 +245,31 @@ class SMABollingStrategy(Strategy):
     def terminate(self):
         """Statistics when strategy ends"""
         pass
+
+    def hyperparameters(self):
+        """
+        Returns a list of dicts describing hyperparameters for optimization.
+        Each dict contains 'name', 'type', 'min', 'max', and 'default' keys.
+        """
+        return [
+            {'name': 'rsi_period', 'type': int, 'min': 8, 'max': 20, 'default': 14},
+            {'name': 'rsi_sma_period', 'type': int, 'min': 8, 'max': 24, 'default': 14},
+            {'name': 'bb_period', 'type': int, 'min': 10, 'max': 40, 'default': 20},
+            {'name': 'adx_period', 'type': int, 'min': 8, 'max': 24, 'default': 14},
+            {'name': 'adx_threshold', 'type': int, 'min': 10, 'max': 40, 'default': 25},
+            {'name': 'bb_width_threshold', 'type': float, 'min': 0.005, 'max': 0.05, 'default': 0.02},
+            {'name': 'rsi_oversold', 'type': int, 'min': 20, 'max': 40, 'default': 30},
+            {'name': 'sma_trend_period', 'type': int, 'min': 8, 'max': 30, 'default': 20},
+        ]
+
+    def dna(self) -> str:
+        symbol = self.symbol
+        dna_dict = {
+            "BTC-USDT": "eyJhZHhfcGVyaW9kIjogOSwgImFkeF90aHJlc2hvbGQiOiAzMCwgImJiX3BlcmlvZCI6IDMyLCAiYmJfd2lkdGhfdGhy"
+                        "ZXNob2xkIjogMC4wNDcsICJyc2lfcGVyaW9kIjogMjEsICJyc2lfc21hX3BlcmlvZCI6IDE4LCAic21hX3RyZW5kX3BlcmlvZCI6IDEyfQ==",
+            "ETH-USDT": "eyJhZHhfcGVyaW9kIjogMTAsICJhZHhfdGhyZXNob2xkIjogMTAsICJiYl9wZXJpb2QiOiAxNSwgImJiX3dpZHRoX3RocmVz"
+                        "aG9sZCI6IDAuMDQxLCAicnNpX3BlcmlvZCI6IDE2LCAicnNpX3NtYV9wZXJpb2QiOiAxNCwgInNtYV90cmVuZF9wZXJpb2QiOiAyMn0=",
+            "XRP-USDT": "eyJhZHhfcGVyaW9kIjogMTcsICJhZHhfdGhyZXNob2xkIjogMzUsICJiYl9wZXJpb2QiOiAxOCwgImJiX3dpZHRoX3RocmV"
+                        "zaG9sZCI6IDAuMDA4LCAicnNpX3BlcmlvZCI6IDgsICJyc2lfc21hX3BlcmlvZCI6IDEzLCAic21hX3RyZW5kX3BlcmlvZCI6IDI1fQ=="
+        }
+        return dna_dict.get(symbol, "")
