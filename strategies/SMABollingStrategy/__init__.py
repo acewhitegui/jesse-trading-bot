@@ -26,7 +26,12 @@ class SMABollingStrategy(Strategy):
         self.adx_period = 12
         self.adx_threshold = 22
         self.bb_width_threshold = 0.01
-        self.sma_trend_period = 14
+        self.stop_loss_factor = 4
+        # high time framework
+        self.short_tema_short_period = 10
+        self.short_tema_long_period = 80
+        self.long_tema_short_period = 20
+        self.long_tema_long_period = 70
 
     @property
     def rsi(self):
@@ -64,14 +69,36 @@ class SMABollingStrategy(Strategy):
         return ta.adx(self.candles, period=self.adx_period, sequential=True)
 
     @property
+    def atr(self):
+        return ta.atr(self.candles)
+
+    @property
     def bb_width(self):
         """Bollinger band width"""
         return (self.bb_upper - self.bb_lower) / self.bb_middle
 
     @property
-    def sma_trend(self):
-        """SMA for trend determination"""
-        return ta.sma(self.candles, period=self.sma_trend_period, sequential=True)
+    def short_term_trend(self):
+        # Get short-term trend using TEMA crossover
+        short_tema_short = ta.tema(self.candles, self.short_tema_short_period)
+        short_tema_long = ta.tema(self.candles, self.short_tema_long_period)
+
+        if short_tema_short > short_tema_long:
+            return 1  # Uptrend
+        else:
+            return -1  # Downtrend
+
+    @property
+    def long_term_trend(self):
+        # Get long-term trend using TEMA crossover on 4h timeframe
+        candles_4h = self.get_candles(self.exchange, self.symbol, '4h')
+        long_tema_short = ta.tema(candles_4h, self.long_tema_short_period)
+        long_tema_long = ta.tema(candles_4h, self.long_tema_long_period)
+
+        if long_tema_short > long_tema_long:
+            return 1  # Uptrend
+        else:
+            return -1  # Downtrend
 
     def is_sideways_market(self):
         """Check if market is sideways"""
@@ -95,58 +122,12 @@ class SMABollingStrategy(Strategy):
     def is_uptrend(self):
         """Check if market is in uptrend"""
         # Check if data is sufficient
-        if (len(self.candles) < 2 or len(self.adx) < 2 or
-                len(self.sma_trend) < 2 or len(self.bb_middle) < 2):
-            return False
-
-        current_price = self.candles[-1][4]  # close price
-        previous_price = self.candles[-2][4]
-        current_adx = self.adx[-1]
-        current_sma = self.sma_trend[-1]
-        bb_mid = self.bb_middle[-1]
-
-        # Uptrend conditions:
-        # 1. ADX shows sufficient trend strength (above threshold)
-        # 2. Price is above SMA and SMA is trending upward
-        # 3. Price is above Bollinger middle band
-        # 4. Price is rising
-        uptrend_conditions = [
-            current_adx >= self.adx_threshold,  # Sufficient trend strength
-            current_price > current_sma,  # Price above trend line
-            current_price > bb_mid,  # Price above Bollinger middle band
-            current_price > previous_price,  # Price rising
-        ]
-
-        # At least 2 conditions must be met to consider uptrend
-        return sum(uptrend_conditions) >= 2
+        return self.short_term_trend == 1 and self.long_term_trend == 1
 
     def is_downtrend(self):
         """Check if market is in downtrend"""
         # Check if data is sufficient
-        if (len(self.candles) < 2 or len(self.adx) < 2 or
-                len(self.sma_trend) < 2 or len(self.bb_middle) < 2):
-            return False
-
-        current_price = self.candles[-1][4]  # close price
-        previous_price = self.candles[-2][4]
-        current_adx = self.adx[-1]
-        current_sma = self.sma_trend[-1]
-        bb_mid = self.bb_middle[-1]
-
-        # Downtrend conditions:
-        # 1. ADX shows sufficient trend strength (above threshold)
-        # 2. Price is below SMA and SMA is trending downward
-        # 3. Price is below Bollinger middle band
-        # 4. Price is falling
-        downtrend_conditions = [
-            current_adx >= self.adx_threshold,  # Sufficient trend strength
-            current_price < current_sma,  # Price below trend line
-            current_price < bb_mid,  # Price below Bollinger middle band
-            current_price < previous_price,  # Price falling
-        ]
-
-        # At least 2 conditions must be met to consider downtrend
-        return sum(downtrend_conditions) >= 2
+        return self.short_term_trend == -1 and self.long_term_trend == -1
 
     def should_long(self) -> bool:
         """Long entry conditions"""
@@ -171,7 +152,7 @@ class SMABollingStrategy(Strategy):
         else:
             # In non-uptrend, use Bollinger lower band
             long_signal = (current_price < bb_lower and
-                           current_rsi < current_rsi_sma < self.rsi_oversold)
+                           current_rsi < current_rsi_sma)
             self.log(f"{self.symbol}, long: {long_signal}, uptrend: False, "
                      f"price({current_price:.4f}) < bb_lower({bb_lower:.4f}): {current_price < bb_lower}, "
                      f"rsi_sma({current_rsi_sma:.2f}) > rsi({current_rsi:.2f}): {current_rsi_sma > current_rsi}, "
@@ -223,10 +204,17 @@ class SMABollingStrategy(Strategy):
             current_rsi = self.rsi[-1]
             current_rsi_sma = self.rsi_sma[-1]
             bb_middle = self.bb_middle[-1]
+            bb_upper = self.bb_upper[-1]
 
             # Close long signal: Price breaks above Bollinger middle band and RSI SMA crosses below RSI or is below RSI
-            close_long_signal = (current_price > bb_middle and
-                                 current_rsi_sma < current_rsi)
+            if self.is_uptrend():
+                close_long_signal = (current_price > bb_upper and
+                                     current_rsi_sma < current_rsi)
+            else:
+                # 下跌趋势，需要止损
+                close_long_signal = (current_price > bb_middle and
+                                     current_rsi_sma < current_rsi)
+                self.stop_loss = self.position.qty, self.position.entry_price - (self.atr * self.stop_loss_factor)
 
             if close_long_signal:
                 self.log(f'Close long: Price={current_price:.2f}, '
@@ -260,6 +248,7 @@ class SMABollingStrategy(Strategy):
             {'name': 'bb_width_threshold', 'type': float, 'min': 0.005, 'max': 0.05, 'default': 0.02},
             {'name': 'rsi_oversold', 'type': int, 'min': 20, 'max': 40, 'default': 30},
             {'name': 'sma_trend_period', 'type': int, 'min': 8, 'max': 30, 'default': 20},
+            {'name': 'stop_loss_factor', 'type': int, 'min': 2, 'max': 7, 'default': 4},
         ]
 
     def dna(self) -> str:
