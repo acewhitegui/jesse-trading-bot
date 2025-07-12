@@ -16,6 +16,26 @@ class SMABollingStrategy(Strategy):
     3. No trading in sideways market
     """
 
+    def hyperparameters(self) -> list:
+        """
+        Returns a list of dicts describing hyperparameters for optimization.
+        Each dict contains 'name', 'type', 'min', 'max', and 'default' keys.
+        """
+        return [
+            {'name': 'rsi_period', 'type': int, 'min': 8, 'max': 20, 'default': 14},
+            {'name': 'rsi_sma_period', 'type': int, 'min': 8, 'max': 24, 'default': 14},
+            {'name': 'bb_period', 'type': int, 'min': 10, 'max': 40, 'default': 20},
+            {'name': 'adx_period', 'type': int, 'min': 8, 'max': 24, 'default': 14},
+            {'name': 'adx_threshold', 'type': int, 'min': 10, 'max': 40, 'default': 25},
+            {'name': 'bb_width_threshold', 'type': float, 'min': 0.005, 'max': 0.05, 'step': 0.005, 'default': 0.02},
+            {'name': 'rsi_oversold', 'type': int, 'min': 20, 'max': 40, 'default': 30},
+            {'name': 'stop_loss_factor', 'type': int, 'min': 2, 'max': 7, 'default': 4},
+            {'name': 'short_tema_short_period', 'type': int, 'min': 5, 'max': 20, 'default': 10},
+            {'name': 'short_tema_long_period', 'type': int, 'min': 60, 'max': 100, 'default': 80},
+            {'name': 'long_tema_short_period', 'type': int, 'min': 10, 'max': 30, 'default': 20},
+            {'name': 'long_tema_long_period', 'type': int, 'min': 50, 'max': 90, 'default': 70},
+        ]
+
     @property
     def rsi(self):
         """RSI indicator"""
@@ -200,7 +220,7 @@ class SMABollingStrategy(Strategy):
                 close_long_signal = (current_price > bb_middle and current_rsi_sma < current_rsi)
 
             self.stop_loss = self.position.qty, self.position.entry_price - (
-                self.atr * self.hp['stop_loss_factor']
+                    self.atr * self.hp['stop_loss_factor']
             )
 
             if close_long_signal:
@@ -216,7 +236,7 @@ class SMABollingStrategy(Strategy):
         if self.is_long:
             # Set stop loss for long position
             self.stop_loss = self.position.qty, self.position.entry_price - (
-                self.atr * self.hp['stop_loss_factor']
+                    self.atr * self.hp['stop_loss_factor']
             )
 
     def on_close_position(self, order):
@@ -226,35 +246,3 @@ class SMABollingStrategy(Strategy):
     def terminate(self):
         """Statistics when strategy ends"""
         pass
-
-    def hyperparameters(self) -> list:
-        """
-        Returns a list of dicts describing hyperparameters for optimization.
-        Each dict contains 'name', 'type', 'min', 'max', and 'default' keys.
-        """
-        return [
-            {'name': 'rsi_period', 'type': int, 'min': 8, 'max': 20, 'default': 14},
-            {'name': 'rsi_sma_period', 'type': int, 'min': 8, 'max': 24, 'default': 14},
-            {'name': 'bb_period', 'type': int, 'min': 10, 'max': 40, 'default': 20},
-            {'name': 'adx_period', 'type': int, 'min': 8, 'max': 24, 'default': 14},
-            {'name': 'adx_threshold', 'type': int, 'min': 10, 'max': 40, 'default': 25},
-            {'name': 'bb_width_threshold', 'type': float, 'min': 0.005, 'max': 0.05, 'step': 0.005, 'default': 0.02},
-            {'name': 'rsi_oversold', 'type': int, 'min': 20, 'max': 40, 'default': 30},
-            {'name': 'stop_loss_factor', 'type': int, 'min': 2, 'max': 7, 'default': 4},
-            {'name': 'short_tema_short_period', 'type': int, 'min': 5, 'max': 20, 'default': 10},
-            {'name': 'short_tema_long_period', 'type': int, 'min': 60, 'max': 100, 'default': 80},
-            {'name': 'long_tema_short_period', 'type': int, 'min': 10, 'max': 30, 'default': 20},
-            {'name': 'long_tema_long_period', 'type': int, 'min': 50, 'max': 90, 'default': 70},
-        ]
-
-    def dna(self) -> str:
-        symbol = self.symbol
-        dna_dict = {
-            "BTC-USDT": "eyJhZHhfcGVyaW9kIjogOSwgImFkeF90aHJlc2hvbGQiOiAzMCwgImJiX3BlcmlvZCI6IDMyLCAiYmJfd2lkdGhfdGhy"
-                        "ZXNob2xkIjogMC4wNDcsICJyc2lfcGVyaW9kIjogMjEsICJyc2lfc21hX3BlcmlvZCI6IDE4LCAic21hX3RyZW5kX3BlcmlvZCI6IDEyfQ==",
-            "ETH-USDT": "eyJhZHhfcGVyaW9kIjogMTAsICJhZHhfdGhyZXNob2xkIjogMTAsICJiYl9wZXJpb2QiOiAxNSwgImJiX3dpZHRoX3RocmVz"
-                        "aG9sZCI6IDAuMDQxLCAicnNpX3BlcmlvZCI6IDE2LCAicnNpX3NtYV9wZXJpb2QiOiAxNCwgInNtYV90cmVuZF9wZXJpb2QiOiAyMn0=",
-            "XRP-USDT": "eyJhZHhfcGVyaW9kIjogMTcsICJhZHhfdGhyZXNob2xkIjogMzUsICJiYl9wZXJpb2QiOiAxOCwgImJiX3dpZHRoX3RocmV"
-                        "zaG9sZCI6IDAuMDA4LCAicnNpX3BlcmlvZCI6IDgsICJyc2lfc21hX3BlcmlvZCI6IDEzLCAic21hX3RyZW5kX3BlcmlvZCI6IDI1fQ=="
-        }
-        return dna_dict.get(symbol, "")
