@@ -1,5 +1,5 @@
 cython==3.1.2
-jesse==1.10.0
+jesse==1.9.8
 setuptools<81
 jesse-live==1.9.8
 grpcio==1.73.1
