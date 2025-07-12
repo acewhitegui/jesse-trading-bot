@@ -16,6 +16,15 @@ class SMABollingStrategy(Strategy):
     3. No trading in sideways market
     """
 
+    def dna(self) -> str:
+        symbol = self.symbol
+        dna_dict = {
+            "BTC-USDT": "eyJhZHhfcGVyaW9kIjogOSwgImFkeF90aHJlc2hvbGQiOiAxNCwgImJiX3BlcmlvZCI6IDQwLCAiYmJfd2lkdGhfdGhyZXNob2xkIjogMC4wNDUsICJsb25nX3RlbWFfbG9uZ19wZXJpb2QiOiA2MiwgImxvbmdfdGVtYV9zaG9ydF9wZXJpb2QiOiAxNSwgInJzaV9vdmVyc29sZCI6IDM0LCAicnNpX3BlcmlvZCI6IDE3LCAicnNpX3NtYV9wZXJpb2QiOiAxNCwgInNob3J0X3RlbWFfbG9uZ19wZXJpb2QiOiA5MywgInNob3J0X3RlbWFfc2hvcnRfcGVyaW9kIjogMTYsICJzdG9wX2xvc3NfZmFjdG9yIjogNX0=",
+            "ETH-USDT": "",
+            "XRP-USDT": ""
+        }
+        return dna_dict.get(symbol, "")
+
     def hyperparameters(self) -> list:
         """
         Returns a list of dicts describing hyperparameters for optimization.
