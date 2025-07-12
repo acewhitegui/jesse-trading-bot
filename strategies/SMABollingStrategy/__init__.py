@@ -21,7 +21,7 @@ class SMABollingStrategy(Strategy):
         dna_dict = {
             "BTC-USDT": "eyJhZHhfcGVyaW9kIjogOSwgImFkeF90aHJlc2hvbGQiOiAxNCwgImJiX3BlcmlvZCI6IDQwLCAiYmJfd2lkdGhfdGhyZXNob2xkIjogMC4wNDUsICJsb25nX3RlbWFfbG9uZ19wZXJpb2QiOiA2MiwgImxvbmdfdGVtYV9zaG9ydF9wZXJpb2QiOiAxNSwgInJzaV9vdmVyc29sZCI6IDM0LCAicnNpX3BlcmlvZCI6IDE3LCAicnNpX3NtYV9wZXJpb2QiOiAxNCwgInNob3J0X3RlbWFfbG9uZ19wZXJpb2QiOiA5MywgInNob3J0X3RlbWFfc2hvcnRfcGVyaW9kIjogMTYsICJzdG9wX2xvc3NfZmFjdG9yIjogNX0=",
             "ETH-USDT": "",
-            "XRP-USDT": ""
+            "XRP-USDT": "eyJhZHhfcGVyaW9kIjogMTIsICJhZHhfdGhyZXNob2xkIjogMTYsICJiYl9wZXJpb2QiOiAxNiwgImJiX3dpZHRoX3RocmVzaG9sZCI6IDAuMDMwMDAwMDAwMDAwMDAwMDAyLCAibG9uZ190ZW1hX2xvbmdfcGVyaW9kIjogNjIsICJsb25nX3RlbWFfc2hvcnRfcGVyaW9kIjogMzAsICJyc2lfb3ZlcnNvbGQiOiAyNCwgInJzaV9wZXJpb2QiOiAxMiwgInJzaV9zbWFfcGVyaW9kIjogMTQsICJzaG9ydF90ZW1hX2xvbmdfcGVyaW9kIjogOTYsICJzaG9ydF90ZW1hX3Nob3J0X3BlcmlvZCI6IDE2LCAic3RvcF9sb3NzX2ZhY3RvciI6IDd9"
         }
         return dna_dict.get(symbol, "")
 
